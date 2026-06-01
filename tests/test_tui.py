@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from textual.widgets import Input, ListView
 
 from ds_cheatsheet.tui.app import CheatSheetApp
+from ds_cheatsheet.tui.substitute_screen import SubstituteScreen
 
 
 @pytest.mark.asyncio
@@ -34,6 +36,21 @@ async def test_theme_keybinding_works_when_list_focused() -> None:
 
 
 @pytest.mark.asyncio
+async def test_theme_keybinding_works_when_search_has_focus() -> None:
+    app = CheatSheetApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.query_one("#search-input").focus()
+        await pilot.pause()
+
+        await pilot.press("t")
+        await pilot.pause()
+
+        assert app.theme == CheatSheetApp.LIGHT_THEME
+        assert app.query_one("#search-input", Input).value == ""
+
+
+@pytest.mark.asyncio
 async def test_search_filters_commands() -> None:
     app = CheatSheetApp()
     async with app.run_test(size=(140, 40)) as pilot:
@@ -44,3 +61,129 @@ async def test_search_filters_commands() -> None:
             await pilot.press(ch if ch != " " else "space")
         await pilot.pause()
         assert app.selected_id == "nvtop"
+
+
+@pytest.mark.asyncio
+async def test_down_from_search_focuses_commands_list() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#search-input", Input).focus()
+        for ch in "monitor gpu":
+            await pilot.press(ch if ch != " " else "space")
+        await pilot.press("down")
+        await pilot.pause()
+
+        assert app.focused is app.query_one("#commands", ListView)
+
+
+@pytest.mark.asyncio
+async def test_enter_from_search_focuses_commands_and_keeps_first_match() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#search-input", Input).focus()
+        for ch in "monitor gpu":
+            await pilot.press(ch if ch != " " else "space")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert app.focused is app.query_one("#commands", ListView)
+        assert app.selected_id == "nvtop"
+
+
+@pytest.mark.asyncio
+async def test_number_key_copies_specific_example(monkeypatch: pytest.MonkeyPatch) -> None:
+    copied: list[str] = []
+    monkeypatch.setattr(
+        "ds_cheatsheet.tui.app.copy_to_clipboard",
+        lambda text: copied.append(text) or (True, "Copied."),
+    )
+
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#commands", ListView).focus()
+        app.selected_id = "tmux-new-session"
+        app._refresh_detail()
+        await pilot.press("1")
+        await pilot.pause()
+
+        assert copied == ["tmux new -s train"]
+        assert app.status_message == "Copied example 1"
+
+
+@pytest.mark.asyncio
+async def test_missing_number_key_example_updates_status() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#commands", ListView).focus()
+        app.selected_id = "tmux-new-session"
+        app._refresh_detail()
+        await pilot.press("9")
+        await pilot.pause()
+
+        assert app.status_message == "No example 9 for this entry."
+
+
+@pytest.mark.asyncio
+async def test_cycle_copy_target_walks_template_and_examples() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#commands", ListView).focus()
+        app.selected_id = "tmux-new-session"
+        app._refresh_detail()
+
+        await pilot.press("C")
+        await pilot.pause()
+        assert app.copy_target_index == 0
+
+        await pilot.press("C")
+        await pilot.pause()
+        assert app.copy_target_index == 1
+
+        await pilot.press("C")
+        await pilot.pause()
+        assert app.copy_target_index == 2
+
+        await pilot.press("C")
+        await pilot.pause()
+        assert app.copy_target_index == -1
+
+
+@pytest.mark.asyncio
+async def test_substitute_action_pushes_modal_for_placeholders() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#commands", ListView).focus()
+        app.selected_id = "tmux-new-session"
+        app._refresh_detail()
+
+        await pilot.press("s")
+        await pilot.pause()
+
+        assert isinstance(app.screen, SubstituteScreen)
+
+
+@pytest.mark.asyncio
+async def test_substitute_callback_copies_filled_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    copied: list[str] = []
+    monkeypatch.setattr(
+        "ds_cheatsheet.tui.app.copy_to_clipboard",
+        lambda text: copied.append(text) or (True, "Copied."),
+    )
+
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        app._copy_substituted_command("tmux new -s train")
+        await pilot.pause()
+
+        assert copied == ["tmux new -s train"]
+        assert app.status_message == "Copied substituted command"

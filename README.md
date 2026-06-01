@@ -58,7 +58,10 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 | `j`/`k` or arrows | Move within the focused list |
 | `tab`| Cycle search → categories → commands    |
 | `enter` | Select the highlighted item          |
-| `c`  | Copy the selected command to clipboard  |
+| `c`  | Copy the selected template/example to clipboard |
+| `1`-`9` | Copy example N directly             |
+| `C`  | Cycle copy target: template → examples |
+| `s`  | Fill placeholders before copying        |
 | `e`  | Edit the underlying YAML in `$EDITOR`   |
 | `x`  | Run the selected command (gated)        |
 | `E`  | Explain a command you type              |

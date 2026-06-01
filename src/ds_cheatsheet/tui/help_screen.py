@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -18,7 +20,10 @@ HELP_TEXT = """[b]ds-linux-cheatsheet[/b]
   enter        open the selected command
 
 [b]Actions[/b]
-  c            copy the selected command to the clipboard
+  c            copy the selected template/example to the clipboard
+  1-9          copy example N directly
+  C            cycle copy target: template → examples
+  s            fill placeholders before copying
   e            edit the underlying YAML file in $EDITOR
   x            run the selected command (with safety prompt)
   E            explain a command you type
@@ -37,7 +42,7 @@ Press [b]escape[/b] to dismiss.
 class HelpScreen(ModalScreen[None]):
     """Modal that prints keyboard shortcuts and safety notes."""
 
-    BINDINGS = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[Binding]] = [Binding("escape", "dismiss", "Close")]
 
     DEFAULT_CSS = """
     HelpScreen {

@@ -133,7 +133,10 @@ binary install shared.
 | `j` / `k` / arrows | Move within the focused list       |
 | `tab`| Cycle search → categories → commands         |
 | `enter` | Select highlighted item                   |
-| `c`  | Copy the selected command to clipboard       |
+| `c`  | Copy the selected template/example to clipboard |
+| `1`-`9` | Copy example N directly                  |
+| `C`  | Cycle copy target: template → examples       |
+| `s`  | Fill placeholders before copying             |
 | `e`  | Edit the underlying YAML file in `$EDITOR`   |
 | `x`  | Run the selected command (gated, see §6)     |
 | `E`  | Explain a command you type                   |

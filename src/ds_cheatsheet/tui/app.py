@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
+from typing import ClassVar
 
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -22,8 +24,9 @@ from ..loader import CheatSheetLoadError, find_data_dir, load_all
 from ..models import CommandEntry
 from ..runner import run as run_command
 from ..search import search as search_entries
+from ..substitute import find_placeholders
 from .help_screen import HelpScreen
-
+from .substitute_screen import SubstituteScreen
 
 _ALL_CATEGORIES = "All"
 
@@ -49,7 +52,21 @@ class CommandItem(ListItem):
         self.entry_id = entry.id
 
 
-def _render_detail(entry: CommandEntry | None) -> Panel:
+class SearchInput(Input):
+    """Search box with app-level shortcuts that should win over typing."""
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "t" and self.value == "":
+            event.prevent_default()
+            event.stop()
+            self.app.action_toggle_theme()
+        elif event.key in {"down", "enter"}:
+            event.prevent_default()
+            event.stop()
+            self.app.query_one("#commands", ListView).focus()
+
+
+def _render_detail(entry: CommandEntry | None, copy_target_index: int = -1) -> Panel:
     """Render the detail panel for a selected command."""
     if entry is None:
         return Panel(Text("Select a command to see details.", style="dim"), title="Detail")
@@ -64,7 +81,8 @@ def _render_detail(entry: CommandEntry | None) -> Panel:
     table.add_column(style="bold cyan", no_wrap=True)
     table.add_column()
 
-    table.add_row("Command", Text(entry.command, style="white on grey15"))
+    command_style = "black on green" if copy_target_index == -1 else "white on grey15"
+    table.add_row("Command", Text(entry.command, style=command_style))
     table.add_row("Explanation", Markdown(entry.explanation))
 
     if entry.flags:
@@ -74,10 +92,16 @@ def _render_detail(entry: CommandEntry | None) -> Panel:
     if entry.examples:
         ex_table = Table.grid(padding=(0, 1))
         ex_table.add_column()
-        for idx, ex in enumerate(entry.examples, start=1):
+        for idx, ex in enumerate(entry.examples):
             ex_block = Text()
-            ex_block.append(f"{idx}. {ex.description}\n", style="italic")
-            ex_block.append(f"   $ {ex.command}", style="white on grey15")
+            marker = f"[{idx + 1}] "
+            if copy_target_index == idx:
+                ex_block.append(marker, style="black on green")
+            else:
+                ex_block.append(marker, style="bold cyan")
+            ex_block.append(f"{ex.description}\n", style="italic")
+            command_style = "black on green" if copy_target_index == idx else "white on grey15"
+            ex_block.append(f"    $ {ex.command}", style=command_style)
             ex_table.add_row(ex_block)
         table.add_row("Examples", ex_table)
 
@@ -89,7 +113,9 @@ def _render_detail(entry: CommandEntry | None) -> Panel:
         table.add_row("Tags", Text(" ".join(f"#{t}" for t in entry.tags), style="cyan"))
 
     if entry.dangerous:
-        table.add_row("Safety", Text("Marked dangerous — runner requires confirm+force.", style="red"))
+        table.add_row(
+            "Safety", Text("Marked dangerous — runner requires confirm+force.", style="red")
+        )
 
     return Panel(table, title=title, border_style="magenta")
 
@@ -101,18 +127,29 @@ class CheatSheetApp(App[None]):
     TITLE = "ds-linux-cheatsheet"
     SUB_TITLE = "Linux commands for data scientists"
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("q", "quit", "Quit"),
         Binding("?", "show_help", "Help"),
         Binding("slash", "focus_search", "Search"),
         Binding("c", "copy_command", "Copy"),
+        Binding("C", "cycle_copy_target", "Cycle"),
+        Binding("s", "substitute_command", "Substitute"),
         Binding("e", "edit_yaml", "Edit YAML"),
         Binding("x", "run_command", "Run"),
         Binding("E", "explain_prompt", "Explain"),
-        Binding("t", "toggle_theme", "Theme"),
-        Binding("j", "move_down", show=False),
-        Binding("k", "move_up", show=False),
-        Binding("tab", "cycle_focus", show=False),
+        Binding("t", "toggle_theme", "Theme", priority=True),
+        Binding("1", "copy_example(1)", "Example 1", show=False),
+        Binding("2", "copy_example(2)", "Example 2", show=False),
+        Binding("3", "copy_example(3)", "Example 3", show=False),
+        Binding("4", "copy_example(4)", "Example 4", show=False),
+        Binding("5", "copy_example(5)", "Example 5", show=False),
+        Binding("6", "copy_example(6)", "Example 6", show=False),
+        Binding("7", "copy_example(7)", "Example 7", show=False),
+        Binding("8", "copy_example(8)", "Example 8", show=False),
+        Binding("9", "copy_example(9)", "Example 9", show=False),
+        Binding("j", "move_down", "Down"),
+        Binding("k", "move_up", "Up"),
+        Binding("tab", "cycle_focus", "Cycle"),
     ]
 
     DARK_THEME = "textual-dark"
@@ -121,6 +158,7 @@ class CheatSheetApp(App[None]):
     query: reactive[str] = reactive("")
     current_category: reactive[str] = reactive(_ALL_CATEGORIES)
     selected_id: reactive[str | None] = reactive(None)
+    copy_target_index: reactive[int] = reactive(-1)
 
     def __init__(self) -> None:
         super().__init__()
@@ -134,13 +172,13 @@ class CheatSheetApp(App[None]):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Horizontal(id="top-bar"):
-            yield Input(placeholder="Search…  (press / to focus)", id="search-input")
+            yield SearchInput(placeholder="Search…  (press / to focus)", id="search-input")
             yield Label("", id="status")
         with Horizontal(id="main"):
             yield ListView(id="categories")
             yield ListView(id="commands")
             with VerticalScroll(id="detail"):
-                yield Static(_render_detail(None), id="detail-body")
+                yield Static(_render_detail(None, -1), id="detail-body")
         yield Footer()
 
     # ------------------------------------------------------------------ lifecycle
@@ -162,6 +200,18 @@ class CheatSheetApp(App[None]):
     def _set_status(self, message: str) -> None:
         self.status_message = message
         self.query_one("#status", Label).update(message)
+
+    def _current_entry(self) -> CommandEntry | None:
+        return self.entries_by_id.get(self.selected_id) if self.selected_id else None
+
+    def _resolve_copy_target(self, entry: CommandEntry) -> tuple[str, str]:
+        if self.copy_target_index == -1:
+            return entry.command, "template"
+        if 0 <= self.copy_target_index < len(entry.examples):
+            return entry.examples[
+                self.copy_target_index
+            ].command, f"example {self.copy_target_index + 1}"
+        return entry.command, "template"
 
     def _refresh_categories(self) -> None:
         view = self.query_one("#categories", ListView)
@@ -190,8 +240,12 @@ class CheatSheetApp(App[None]):
             self._set_status("No matches")
 
     def _refresh_detail(self) -> None:
-        entry = self.entries_by_id.get(self.selected_id) if self.selected_id else None
-        self.query_one("#detail-body", Static).update(_render_detail(entry))
+        entry = self._current_entry()
+        self.query_one("#detail-body", Static).update(_render_detail(entry, self.copy_target_index))
+
+    def watch_selected_id(self, old: str | None, new: str | None) -> None:
+        if old != new:
+            self.copy_target_index = -1
 
     # ------------------------------------------------------------------ events
 
@@ -199,6 +253,18 @@ class CheatSheetApp(App[None]):
         if event.input.id == "search-input":
             self.query = event.value
             self._refresh_commands()
+
+    def on_key(self, event: events.Key) -> None:
+        if self.focused is not None and self.focused.id == "search-input":
+            if event.key == "t" and self.query_one("#search-input", Input).value == "":
+                event.prevent_default()
+                event.stop()
+                self.action_toggle_theme()
+                return
+            if event.key in {"down", "enter"}:
+                event.prevent_default()
+                event.stop()
+                self.query_one("#commands", ListView).focus()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
@@ -231,15 +297,65 @@ class CheatSheetApp(App[None]):
         self._set_status(f"Theme: {self.theme}")
 
     def action_copy_command(self) -> None:
-        entry = self.entries_by_id.get(self.selected_id) if self.selected_id else None
+        entry = self._current_entry()
         if entry is None:
             self._set_status("Nothing to copy.")
             return
-        ok, msg = copy_to_clipboard(entry.command)
-        self._set_status(msg if ok else f"Copy failed: {msg}")
+        command, label = self._resolve_copy_target(entry)
+        ok, msg = copy_to_clipboard(command)
+        self._set_status(f"Copied {label}" if ok else f"Copy failed: {msg}")
+
+    def action_copy_example(self, number: int) -> None:
+        entry = self._current_entry()
+        if entry is None:
+            self._set_status("Nothing to copy.")
+            return
+        index = number - 1
+        if index < 0 or index >= len(entry.examples):
+            self._set_status(f"No example {number} for this entry.")
+            return
+        self.copy_target_index = index
+        self._refresh_detail()
+        self.action_copy_command()
+
+    def action_cycle_copy_target(self) -> None:
+        entry = self._current_entry()
+        if entry is None:
+            self._set_status("Nothing to copy.")
+            return
+        next_index = self.copy_target_index + 1
+        self.copy_target_index = -1 if next_index >= len(entry.examples) else next_index
+        self._refresh_detail()
+        if self.copy_target_index == -1:
+            self._set_status("Copy target: template")
+        else:
+            self._set_status(f"Copy target: example {self.copy_target_index + 1}")
+
+    def action_substitute_command(self) -> None:
+        entry = self._current_entry()
+        if entry is None:
+            self._set_status("Nothing to substitute.")
+            return
+        command, _label = self._resolve_copy_target(entry)
+        placeholders = find_placeholders(command)
+        if not placeholders:
+            ok, msg = copy_to_clipboard(command)
+            self._set_status("No placeholders to fill." if ok else f"Copy failed: {msg}")
+            return
+        self.push_screen(
+            SubstituteScreen(command, placeholders),
+            self._copy_substituted_command,
+        )
+
+    def _copy_substituted_command(self, command: str | None) -> None:
+        if command is None:
+            self._set_status("Substitution cancelled.")
+            return
+        ok, msg = copy_to_clipboard(command)
+        self._set_status("Copied substituted command" if ok else f"Copy failed: {msg}")
 
     def action_edit_yaml(self) -> None:
-        entry = self.entries_by_id.get(self.selected_id) if self.selected_id else None
+        entry = self._current_entry()
         if entry is None or self.data_dir is None:
             self._set_status("Nothing to edit.")
             return
@@ -272,7 +388,7 @@ class CheatSheetApp(App[None]):
             self._set_status(f"Reload error: {exc}")
 
     def action_run_command(self) -> None:
-        entry = self.entries_by_id.get(self.selected_id) if self.selected_id else None
+        entry = self._current_entry()
         if entry is None:
             self._set_status("Nothing to run.")
             return
@@ -330,7 +446,7 @@ class CheatSheetApp(App[None]):
 class _ExplainScreen(HelpScreen):  # reuse modal styling
     """Modal that asks for a command and displays its explanation."""
 
-    BINDINGS = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[Binding]] = [Binding("escape", "dismiss", "Close")]
 
     def compose(self) -> ComposeResult:
         with Vertical():

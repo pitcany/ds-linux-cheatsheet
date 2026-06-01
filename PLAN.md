@@ -52,7 +52,7 @@ Total scope: ~900 LOC excluding tests. Estimated 4–6 focused sessions.
 
 ## Phase 1 — Core UX wins (do these first)
 
-### 1. Copy a specific example, not just the template
+### ✅ 1. Copy a specific example, not just the template
 
 **Problem.** `c` always copies `entry.command` (the template with
 `<placeholders>`). 95% of the time the user wants a concrete example.
@@ -90,7 +90,7 @@ Total scope: ~900 LOC excluding tests. Estimated 4–6 focused sessions.
 
 ---
 
-### 2. Parameter substitution modal
+### ✅ 2. Parameter substitution modal
 
 **Problem.** Templates contain `<name>`, `<host>`, `<port>`, `<dir>`,
 `<pattern>`, etc. Users always have to hand-edit after copying.
@@ -138,7 +138,7 @@ def substitute(command: str, mapping: dict[str, str]) -> str:
 
 ---
 
-### 3. Theme toggle works when search has focus
+### ✅ 3. Theme toggle works when search has focus
 
 **Problem.** Pressing `t` while the search Input is focused types the
 letter `t` instead of toggling.
@@ -159,7 +159,7 @@ letter `t` instead of toggling.
 
 ---
 
-### 4. `↓` from the search box drops into the commands list
+### ✅ 4. `↓` from the search box drops into the commands list
 
 **Problem.** After typing a query the natural next motion is `↓` to walk
 results, but `↓` does nothing useful inside the Input.

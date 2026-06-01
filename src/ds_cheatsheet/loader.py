@@ -87,9 +87,7 @@ def load_all(data_dir: Path | None = None) -> list[CommandEntry]:
     for yaml_path in sorted(base.glob("*.yaml")):
         for entry in load_file(yaml_path):
             if entry.id in seen_ids:
-                raise CheatSheetLoadError(
-                    f"Duplicate command id '{entry.id}' in {yaml_path.name}"
-                )
+                raise CheatSheetLoadError(f"Duplicate command id '{entry.id}' in {yaml_path.name}")
             seen_ids.add(entry.id)
             entries.append(entry)
 

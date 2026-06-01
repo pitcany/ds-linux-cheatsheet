@@ -158,18 +158,14 @@ def explain(command: str) -> Explanation:
             continue
 
         if expecting_command and not piece.startswith("-"):
-            tokens.append(
-                Token(value=piece, kind="command", description=_describe_command(piece))
-            )
+            tokens.append(Token(value=piece, kind="command", description=_describe_command(piece)))
             expecting_command = False
             continue
 
         if piece.startswith("--") and "=" in piece:
             flag, value = piece.split("=", 1)
             tokens.append(Token(value=flag, kind="flag", description=_describe_flag(flag)))
-            tokens.append(
-                Token(value=value, kind="value", description=f"Value for `{flag}`.")
-            )
+            tokens.append(Token(value=value, kind="value", description=f"Value for `{flag}`."))
             continue
 
         if piece.startswith("-"):

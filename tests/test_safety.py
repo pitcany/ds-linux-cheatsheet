@@ -56,9 +56,5 @@ def test_analyze_returns_reasons() -> None:
 def test_loaded_dangerous_entries_match_safety_check() -> None:
     """Every entry whose command is detected dangerous should be flagged."""
     entries = load_all(DATA_DIR)
-    mismatches = [
-        e.id
-        for e in entries
-        if is_dangerous(e.command) and not e.dangerous
-    ]
+    mismatches = [e.id for e in entries if is_dangerous(e.command) and not e.dangerous]
     assert mismatches == [], f"dangerous commands not flagged: {mismatches}"
