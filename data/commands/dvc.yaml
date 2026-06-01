@@ -1,0 +1,139 @@
+category: dvc
+commands:
+  - id: dvc-init
+    title: Initialize DVC in a git repo
+    category: dvc
+    command: dvc init
+    explanation: |
+      Creates a `.dvc/` directory and stages it for git. From here, large data
+      files are tracked by content hash while git tracks the small pointer
+      files.
+    flags:
+      - --no-scm   non-git project
+      - --subdir   inside a subdirectory of a git repo
+    examples:
+      - description: First-time setup
+        command: dvc init && git commit -m "Initialize DVC"
+    gotchas:
+      - "Run from the *repo root* or pass `--subdir` — otherwise DVC complains about not finding the git root."
+    tags: [dvc, init]
+
+  - id: dvc-add
+    title: Track a file or directory with DVC
+    category: dvc
+    command: dvc add <path>
+    explanation: |
+      Moves the file into the DVC cache, replaces it with a placeholder, and
+      generates a `<path>.dvc` pointer file to commit to git.
+    flags: []
+    examples:
+      - description: Track a dataset directory
+        command: |
+          dvc add data/raw
+          git add data/raw.dvc data/.gitignore
+          git commit -m "Track raw data"
+    gotchas:
+      - "Always `git add` the generated `.dvc` file and the updated `.gitignore` — forgetting either breaks pulls for collaborators."
+    tags: [dvc, add, track]
+
+  - id: dvc-remote-add
+    title: Configure a remote storage backend
+    category: dvc
+    command: dvc remote add -d <name> <url>
+    explanation: |
+      Sets the default storage for `dvc push`. Supports s3, gs, azure, ssh,
+      gdrive, http, and local paths.
+    flags:
+      - -d   make this the default remote
+      - -f   overwrite existing
+    examples:
+      - description: Use an S3 bucket
+        command: dvc remote add -d myremote s3://my-bucket/dvc-store
+      - description: Local network share
+        command: dvc remote add -d nfs /mnt/shared/dvc-cache
+    gotchas:
+      - "S3 credentials come from the usual chain — `AWS_PROFILE`, env vars, or instance metadata."
+    tags: [dvc, remote, config]
+
+  - id: dvc-push-pull
+    title: Push/pull tracked data to/from the remote
+    category: dvc
+    command: dvc push
+    explanation: |
+      `push` uploads cached files referenced by the current commit; `pull`
+      downloads what you're missing. Pair with git push/pull for full state.
+    flags:
+      - -r <remote>   override default
+      - -j <n>        parallel jobs
+    examples:
+      - description: Sync after a commit
+        command: git push && dvc push
+      - description: Hydrate a fresh clone
+        command: git pull && dvc pull
+    gotchas:
+      - "`dvc pull` won't fetch files for commits other than current HEAD — checkout the commit first."
+    tags: [dvc, push, pull]
+
+  - id: dvc-repro
+    title: Reproduce a pipeline
+    category: dvc
+    command: dvc repro
+    explanation: |
+      Walks the `dvc.yaml` DAG and re-runs only stages whose inputs changed.
+      Like Make for data pipelines.
+    flags:
+      - -f       force re-run all stages
+      - -s <name>  single stage
+      - --dry    show what would run
+    examples:
+      - description: Run the full pipeline
+        command: dvc repro
+      - description: Force the train stage
+        command: dvc repro -f -s train
+    gotchas:
+      - "DVC tracks file mtimes *and* hashes — touching a file without changing content still triggers re-execution in some cases."
+    tags: [dvc, pipeline, repro]
+
+  - id: dvc-exp-run
+    title: Run a tracked experiment
+    category: dvc
+    command: dvc exp run -S <param>=<value>
+    explanation: |
+      Runs the pipeline as a lightweight experiment branch — no commit needed.
+      Override params on the CLI for quick sweeps.
+    flags:
+      - -S key=val      override a param
+      - -n <name>       experiment name
+      - --queue         queue without running
+      - --run-all       run all queued
+    examples:
+      - description: Try a higher learning rate
+        command: dvc exp run -S train.lr=0.01
+      - description: Queue 3 experiments and run in parallel
+        command: |
+          dvc exp run --queue -S train.lr=0.001
+          dvc exp run --queue -S train.lr=0.01
+          dvc exp run --queue -S train.lr=0.1
+          dvc exp run --run-all --jobs 3
+    gotchas:
+      - "Experiments are stored under git refs (`refs/exps/...`), not branches — `git branch -a` won't show them; use `dvc exp show`."
+    tags: [dvc, experiment, run]
+
+  - id: dvc-exp-show
+    title: Compare experiments
+    category: dvc
+    command: dvc exp show
+    explanation: |
+      Tabular view of every experiment with params and metrics. Pipe through
+      `--csv` to feed downstream analysis.
+    flags:
+      - --csv
+      - --json
+      - --include-metrics <m>
+    examples:
+      - description: Quick compare
+        command: dvc exp show
+      - description: To pandas
+        command: dvc exp show --csv > exps.csv
+    gotchas: []
+    tags: [dvc, experiment, compare]

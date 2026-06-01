@@ -1,0 +1,95 @@
+category: make
+commands:
+  - id: make-basic-target
+    title: Run a Makefile target
+    category: make
+    command: make <target>
+    explanation: |
+      Runs the named target from `Makefile` in the current directory. Without
+      a target, runs the first one defined. Make is the classic
+      DAG-of-shell-commands runner — great glue for data pipelines.
+    flags:
+      - -f <file>   alternative Makefile
+      - -C <dir>    chdir first
+      - -j <n>      parallel jobs
+      - -n          dry run
+      - -B          force rebuild all
+    examples:
+      - description: Run the default target
+        command: make
+      - description: 8 jobs in parallel
+        command: make -j 8 all
+      - description: Preview what would happen
+        command: make -n train
+    gotchas:
+      - "Make targets need *tabs*, not spaces, before recipe lines — silent failures otherwise."
+    tags: [make, build, pipeline]
+
+  - id: make-phony-targets
+    title: Declare phony (non-file) targets
+    category: make
+    command: ".PHONY: <target1> <target2>"
+    explanation: |
+      Tells make these targets don't produce a file of that name, so they
+      always run. Common for `test`, `lint`, `clean`, `train`.
+    flags: []
+    examples:
+      - description: Standard phony declarations
+        command: |
+          .PHONY: train test clean
+          train:
+          	python train.py
+          test:
+          	pytest
+          clean:
+          	rm -rf outputs/
+    gotchas:
+      - "Without `.PHONY`, a file named `test` in the directory makes `make test` think the target is up to date and do nothing."
+    tags: [make, phony]
+
+  - id: make-variables
+    title: Define and use variables
+    category: make
+    command: VAR := value
+    explanation: |
+      `:=` is immediate assignment (recommended); `=` is recursive (re-evaluates
+      each use). Reference with `$(VAR)`. Override on the CLI: `make VAR=other`.
+    flags: []
+    examples:
+      - description: Param-driven training target
+        command: |
+          LR := 0.001
+          EPOCHS := 10
+          train:
+          	python train.py --lr $(LR) --epochs $(EPOCHS)
+      - description: Override at CLI
+        command: make train LR=0.01 EPOCHS=50
+    gotchas:
+      - "`$$` escapes a dollar sign for the shell — use `$$VAR` to reference a shell variable inside a recipe."
+    tags: [make, variables]
+
+  - id: make-data-pipeline
+    title: Wire up a data → train → eval pipeline
+    category: make
+    command: make eval
+    explanation: |
+      Make's dependency tracking shines for data pipelines: each step's output
+      file is the input to the next, and only stale steps re-run.
+    flags: []
+    examples:
+      - description: Three-stage pipeline
+        command: |
+          data/processed.parquet: data/raw.csv prep.py
+          	python prep.py --input $< --output $@
+
+          models/model.pkl: data/processed.parquet train.py
+          	python train.py --data $< --output $@
+
+          reports/eval.json: models/model.pkl eval.py
+          	python eval.py --model $< --output $@
+
+          .PHONY: eval
+          eval: reports/eval.json
+    gotchas:
+      - "Make compares mtimes — `touch`-ing a stage file fools it. For real reproducibility use `dvc` instead."
+    tags: [make, pipeline, data]

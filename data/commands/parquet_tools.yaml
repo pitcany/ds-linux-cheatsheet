@@ -1,0 +1,91 @@
+category: parquet
+commands:
+  - id: parquet-schema
+    title: Print a Parquet file's schema
+    category: parquet
+    command: parquet-tools schema <file.parquet>
+    explanation: |
+      Dumps the column types and nesting structure. First thing to check when
+      a downstream tool complains about a column.
+    flags:
+      - -d   detail mode
+    examples:
+      - description: Quick schema check
+        command: parquet-tools schema train.parquet
+      - description: With duckdb instead
+        command: duckdb -c "DESCRIBE SELECT * FROM 'train.parquet';"
+    gotchas:
+      - "`parquet-tools` ships from the parquet-mr (Java) project; the pip package `parquet-tools` is a Python port — flag names differ slightly between them."
+    tags: [parquet, schema, inspect]
+
+  - id: parquet-head
+    title: Peek at the first N rows
+    category: parquet
+    command: parquet-tools head -n <n> <file.parquet>
+    explanation: |
+      The Parquet equivalent of `head` for a binary columnar file. Faster than
+      loading into pandas just to see column values.
+    flags:
+      - -n <count>
+    examples:
+      - description: First 5 rows
+        command: parquet-tools head -n 5 train.parquet
+      - description: With duckdb
+        command: duckdb -c "SELECT * FROM 'train.parquet' LIMIT 5;"
+    gotchas: []
+    tags: [parquet, preview]
+
+  - id: parquet-row-count
+    title: Count rows without scanning data
+    category: parquet
+    command: parquet-tools inspect <file.parquet>
+    explanation: |
+      Reads only the file footer — instant even for huge files. Returns row
+      count, row-group count, file size, and per-column stats.
+    flags: []
+    examples:
+      - description: Row count + group layout
+        command: parquet-tools inspect train.parquet
+      - description: Fast row count via duckdb
+        command: duckdb -c "SELECT count(*) FROM 'train.parquet';"
+    gotchas:
+      - "Tiny row groups (< 100K rows) kill scan performance — if `inspect` shows hundreds of groups in a small file, rewrite with a bigger row-group size."
+    tags: [parquet, metadata, count]
+
+  - id: parquet-duckdb-query
+    title: SQL over a Parquet file (no load step)
+    category: parquet
+    command: duckdb -c "SELECT ... FROM '<file.parquet>';"
+    explanation: |
+      DuckDB reads Parquet (and CSV, JSON) directly with predicate pushdown.
+      Often beats pandas for ad-hoc aggregations on multi-GB files.
+    flags:
+      - -c "<sql>"   one-shot SQL
+      - -json        JSON output
+    examples:
+      - description: Group-by on a 50GB file
+        command: duckdb -c "SELECT label, count(*) FROM 'train.parquet' GROUP BY label;"
+      - description: Glob over a directory of parts
+        command: duckdb -c "SELECT count(*) FROM 'data/year=2026/*.parquet';"
+      - description: Join two files
+        command: duckdb -c "SELECT a.id, b.score FROM 'a.parquet' a JOIN 'b.parquet' b USING(id);"
+    gotchas:
+      - "DuckDB streams Parquet from S3 with the `httpfs` extension — call `INSTALL httpfs; LOAD httpfs;` first."
+    tags: [parquet, duckdb, sql]
+
+  - id: parquet-pyarrow-convert
+    title: Convert CSV to Parquet with PyArrow
+    category: parquet
+    command: python -c "import pyarrow.csv as csv, pyarrow.parquet as pq; pq.write_table(csv.read_csv('in.csv'), 'out.parquet')"
+    explanation: |
+      A one-liner that beats pandas for big-CSV-to-Parquet conversion: streams
+      via Arrow rather than loading the whole frame.
+    flags: []
+    examples:
+      - description: CSV → Parquet
+        command: python -c "import pyarrow.csv as csv, pyarrow.parquet as pq; pq.write_table(csv.read_csv('in.csv'), 'out.parquet', compression='zstd')"
+      - description: Same thing in duckdb
+        command: duckdb -c "COPY (SELECT * FROM read_csv_auto('in.csv')) TO 'out.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);"
+    gotchas:
+      - "Default compression is snappy — `zstd` gives ~20% smaller files at similar speed."
+    tags: [parquet, pyarrow, duckdb, convert]

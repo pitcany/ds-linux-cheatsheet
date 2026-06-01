@@ -1,0 +1,119 @@
+category: mlflow
+commands:
+  - id: mlflow-server
+    title: Launch a local MLflow tracking server
+    category: mlflow
+    command: mlflow server --backend-store-uri <db-uri> --artifacts-destination <path> --host 0.0.0.0 --port 5000
+    explanation: |
+      Runs the tracking server. `--backend-store-uri` holds runs/metrics
+      (sqlite is fine for solo, postgres for teams). `--artifacts-destination`
+      is where model files actually live.
+    flags:
+      - --backend-store-uri <uri>
+      - --artifacts-destination <path>
+      - --host 0.0.0.0
+      - --port 5000
+      - --serve-artifacts
+    examples:
+      - description: Local SQLite + filesystem artifacts
+        command: mlflow server --backend-store-uri sqlite:///mlruns.db --artifacts-destination ./mlartifacts --host 0.0.0.0
+      - description: S3 artifacts behind a postgres backend
+        command: mlflow server --backend-store-uri postgresql://user:pw@db/mlflow --artifacts-destination s3://my-bucket/mlflow
+    gotchas:
+      - "Make sure `MLFLOW_TRACKING_URI` in clients matches the server URL — silent mismatch leads to runs landing in `./mlruns/`."
+    tags: [mlflow, tracking, server]
+
+  - id: mlflow-ui
+    title: Open the MLflow UI for a local run store
+    category: mlflow
+    command: mlflow ui --backend-store-uri <uri>
+    explanation: |
+      Read-only UI against an existing tracking backend. Lighter than
+      `mlflow server` when you just want to browse a SQLite file.
+    flags:
+      - --backend-store-uri <uri>
+      - --port 5000
+    examples:
+      - description: Browse a local sqlite store
+        command: mlflow ui --backend-store-uri sqlite:///mlruns.db
+    gotchas: []
+    tags: [mlflow, ui]
+
+  - id: mlflow-run-project
+    title: Run an MLflow Project
+    category: mlflow
+    command: mlflow run <uri> -P <key>=<value>
+    explanation: |
+      Executes an MLproject (folder or git repo with an `MLproject` file).
+      Resolves the right conda/venv, logs params, and records the run.
+    flags:
+      - -P <k>=<v>     pass param
+      - --env-manager conda|virtualenv|local
+      - --experiment-name <name>
+      - --run-name <name>
+    examples:
+      - description: Run a git-hosted project with one override
+        command: mlflow run https://github.com/me/proj.git -P lr=0.01
+      - description: Local folder, local env
+        command: mlflow run . -P epochs=10 --env-manager local
+    gotchas:
+      - "`--env-manager local` skips environment setup — make sure deps are already installed."
+    tags: [mlflow, project, run]
+
+  - id: mlflow-models-serve
+    title: Serve a logged model as REST
+    category: mlflow
+    command: mlflow models serve -m <model-uri> -p <port>
+    explanation: |
+      Spins up a `/invocations` endpoint that accepts JSON or pandas-split
+      payloads. Model URIs can be `runs:/`, `models:/`, or a local path.
+    flags:
+      - -m <uri>
+      - -p <port>
+      - --env-manager local|conda|virtualenv
+      - --no-conda  (legacy synonym)
+    examples:
+      - description: Serve from a run
+        command: mlflow models serve -m runs:/abcd1234/model -p 5001 --env-manager local
+      - description: Serve a registered model version
+        command: mlflow models serve -m models:/my-classifier/Production -p 5001
+    gotchas:
+      - "Default request schema is pandas-split JSON — clients sending plain arrays will 400."
+    tags: [mlflow, serve, inference]
+
+  - id: mlflow-models-predict
+    title: Batch-score a CSV against a model
+    category: mlflow
+    command: mlflow models predict -m <model-uri> -i <input.csv> -o <output.csv> -t csv
+    explanation: |
+      One-shot offline scoring without spinning up a server. Great for
+      smoke-testing a freshly logged model.
+    flags:
+      - -m <uri>
+      - -i <input>
+      - -o <output>
+      - -t csv|json
+    examples:
+      - description: CSV in, CSV out
+        command: mlflow models predict -m models:/my-classifier/1 -i holdout.csv -o preds.csv -t csv
+    gotchas: []
+    tags: [mlflow, batch, predict]
+
+  - id: mlflow-experiments-list
+    title: List experiments in the tracking server
+    category: mlflow
+    command: mlflow experiments search
+    explanation: |
+      Quick CLI peek without firing up the UI. `--view ACTIVE_ONLY|ALL|DELETED_ONLY`
+      filters lifecycle state.
+    flags:
+      - --view ACTIVE_ONLY|ALL|DELETED_ONLY
+      - --filter "name LIKE 'prod-%'"
+    examples:
+      - description: All active experiments
+        command: mlflow experiments search
+      - description: Including soft-deleted ones
+        command: mlflow experiments search --view ALL
+    gotchas:
+      - "Honors `MLFLOW_TRACKING_URI`; if unset, defaults to local `./mlruns`."
+    tags: [mlflow, experiments]

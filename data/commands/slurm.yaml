@@ -1,0 +1,148 @@
+category: slurm
+commands:
+  - id: slurm-sbatch-script
+    title: Submit a batch job script
+    category: slurm
+    command: sbatch <script.sh>
+    explanation: |
+      Submits a script with `#SBATCH` directives at the top. Returns a job ID.
+      Use this for anything longer than a few minutes — the head node should
+      stay free.
+    flags:
+      - --job-name=<n>
+      - --partition=<p>
+      - --gres=gpu:<count>
+      - --cpus-per-task=<n>
+      - --mem=<size>
+      - --time=HH:MM:SS
+      - --output=<path>
+    examples:
+      - description: Submit a training job
+        command: sbatch train.sh
+      - description: Override directives at submit time
+        command: sbatch --gres=gpu:2 --time=04:00:00 train.sh
+    gotchas:
+      - "`#SBATCH` lines must precede any non-comment lines in the script — the parser stops at the first executable line."
+    tags: [slurm, hpc, batch]
+
+  - id: slurm-srun-interactive
+    title: Interactive GPU session
+    category: slurm
+    command: srun --pty --gres=gpu:1 --time=1:00:00 bash
+    explanation: |
+      Allocates resources and drops you into a shell on a worker node. Ideal
+      for prototyping or debugging a node-specific failure.
+    flags:
+      - --pty            pseudo terminal
+      - --gres=gpu:N
+      - --cpus-per-task=N
+      - --mem=<size>
+      - --time=HH:MM:SS
+    examples:
+      - description: Quick interactive GPU shell
+        command: srun --pty --gres=gpu:1 --mem=32G --time=2:00:00 bash
+      - description: Step inside an existing allocation (in a 2nd terminal)
+        command: srun --jobid=<id> --pty bash
+    gotchas:
+      - Closing the terminal kills the allocation — use `tmux` on the login node before `srun`.
+    tags: [slurm, interactive, gpu]
+
+  - id: slurm-squeue
+    title: List your queued and running jobs
+    category: slurm
+    command: squeue -u $USER
+    explanation: |
+      Without `-u`, shows everyone's jobs. Add `-l` for long format with full
+      time limits. Use `--start` to see estimated start times.
+    flags:
+      - -u $USER
+      - -l        long format
+      - --start   estimated start time
+      - -p <part> by partition
+    examples:
+      - description: Watch your queue
+        command: watch -n 5 'squeue -u $USER'
+      - description: All GPU partition jobs
+        command: squeue -p gpu -l
+    gotchas: []
+    tags: [slurm, queue, status]
+
+  - id: slurm-scancel
+    title: Cancel a job
+    category: slurm
+    command: scancel <jobid>
+    explanation: |
+      Kills the job and any steps. Use `-u $USER` to nuke all of your jobs
+      at once — handy after a botched submit.
+    flags:
+      - -u $USER  cancel all of your jobs
+      - --state=PENDING  only queued
+      - --name=<n>       by job name
+    examples:
+      - description: Cancel a single job
+        command: scancel 1234567
+      - description: Cancel every job you have queued (not running)
+        command: scancel -u $USER --state=PENDING
+    gotchas:
+      - "`scancel <id>` sends SIGTERM then SIGKILL — your trap handlers have ~30s to checkpoint."
+    dangerous: true
+    tags: [slurm, cancel]
+
+  - id: slurm-sacct-history
+    title: Look up a finished job's stats
+    category: slurm
+    command: sacct -j <jobid> --format=JobID,JobName,State,Elapsed,MaxRSS,ReqMem
+    explanation: |
+      Pulls completed-job accounting data — runtime, peak memory, exit code.
+      Essential for tuning future submits.
+    flags:
+      - -j <id>
+      - --format=<fields>
+      - -S <date>  start date
+      - --user=$USER
+    examples:
+      - description: Yesterday's runs by you
+        command: sacct -u $USER -S yesterday --format=JobID,JobName,State,Elapsed
+      - description: Memory tuning info
+        command: sacct -j 1234567 --format=JobID,MaxRSS,ReqMem,State
+    gotchas:
+      - "`MaxRSS` requires accounting plugins that some clusters disable — check with the cluster admin if it's blank."
+    tags: [slurm, accounting, history]
+
+  - id: slurm-sinfo
+    title: Inspect cluster partitions and node state
+    category: slurm
+    command: sinfo -o "%P %a %D %T %N"
+    explanation: |
+      Custom format shows partition / availability / node count / state / node
+      list. Use to find idle GPU nodes before you submit.
+    flags:
+      - -o <format>
+      - -N         per-node view
+      - -p <part>  filter by partition
+    examples:
+      - description: GPU partition state at a glance
+        command: sinfo -p gpu -N -o "%N %T %G"
+      - description: Idle nodes only
+        command: sinfo --states=idle
+    gotchas: []
+    tags: [slurm, sinfo, cluster]
+
+  - id: slurm-array-job
+    title: Run a job array (parameter sweep)
+    category: slurm
+    command: sbatch --array=0-9 sweep.sh
+    explanation: |
+      Spawns N copies of the script with `SLURM_ARRAY_TASK_ID` set to 0..N-1
+      inside each. The cluster-native way to do hyperparameter sweeps.
+    flags:
+      - --array=0-9       range
+      - --array=0-99%5    range with concurrency cap
+    examples:
+      - description: 100 trials, 10 at a time
+        command: sbatch --array=0-99%10 sweep.sh
+      - description: Pick params by task id inside the script
+        command: 'python train.py --lr "${LRS[$SLURM_ARRAY_TASK_ID]}"'
+    gotchas:
+      - Every array element shares the same `--time` and `--mem` — size for the *worst* trial, not the average.
+    tags: [slurm, array, sweep]

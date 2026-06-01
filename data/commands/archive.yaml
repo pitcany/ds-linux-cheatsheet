@@ -1,0 +1,142 @@
+category: archive
+commands:
+  - id: archive-tar-create
+    title: Create a tarball
+    category: archive
+    command: tar -czvf <out.tar.gz> <path>
+    explanation: |
+      `-c` create, `-z` gzip, `-v` verbose, `-f` filename. Swap `-z` for `-j`
+      (bzip2), `-J` (xz), or `--zstd` (fastest at modern compression ratios).
+    flags:
+      - -c   create
+      - -z   gzip
+      - -j   bzip2
+      - -J   xz
+      - --zstd  zstd (fast)
+      - -v   verbose
+      - -f <file>
+      - --exclude '<glob>'
+      - --exclude-vcs
+    examples:
+      - description: Quick gzip tarball
+        command: tar -czvf data.tar.gz data/
+      - description: Faster compression with zstd
+        command: tar --zstd -cvf data.tar.zst data/
+      - description: Skip cache + .git
+        command: tar -czvf project.tar.gz --exclude='__pycache__' --exclude-vcs project/
+    gotchas:
+      - "`-f` must be followed immediately by the filename — `tar -czf -v file path` writes verbose output *to the file* called `-v`."
+    tags: [tar, archive, compress]
+
+  - id: archive-tar-extract
+    title: Extract a tarball
+    category: archive
+    command: tar -xzvf <file.tar.gz> -C <dest>
+    explanation: |
+      `-x` extract, `-C` change to dest dir before extracting. Modern `tar`
+      auto-detects compression so `-a` (or just omitting the format flag) often
+      works without specifying gzip/bzip2/xz/zstd.
+    flags:
+      - -x   extract
+      - -C <dir>   destination
+      - --strip-components=N   drop N leading path parts
+      - -t   list contents only
+    examples:
+      - description: Extract into a fresh directory
+        command: |
+          mkdir release && tar -xzvf release.tar.gz -C release --strip-components=1
+      - description: Peek without extracting
+        command: tar -tzvf archive.tar.gz | head
+      - description: Auto-detect format
+        command: tar -xaf archive.tar.zst
+    gotchas:
+      - "Always preview with `-t` before extracting strangers' tarballs — a malicious archive can write to absolute paths or `../`."
+    tags: [tar, extract]
+
+  - id: archive-zstd-compress
+    title: Compress with zstd (fast + small)
+    category: archive
+    command: zstd -<level> <file>
+    explanation: |
+      Zstd is the modern default — faster than gzip at the same ratio, with
+      multi-threading via `-T0`. Sweet spot for ML datasets and model
+      checkpoints.
+    flags:
+      - -1 .. -19   compression level
+      - --long=27   long-range mode (better ratio)
+      - -T0         all cores
+      - -d          decompress
+      - --rm        remove input after compress
+    examples:
+      - description: All-cores, level 9
+        command: zstd -9 -T0 model.bin
+      - description: Decompress
+        command: zstd -d model.bin.zst
+      - description: Stream pipe
+        command: 'cat huge.log | zstd -T0 > huge.log.zst'
+    gotchas:
+      - "Level 19+ uses *much* more memory — fine on a workstation, fatal on a 4GB container."
+    tags: [zstd, compress]
+
+  - id: archive-gzip-pigz
+    title: Parallel gzip with pigz
+    category: archive
+    command: pigz -p <threads> <file>
+    explanation: |
+      Drop-in parallel replacement for `gzip`. Linearly faster on multi-core
+      machines; output is byte-compatible with standard gzip readers.
+    flags:
+      - -p <n>   threads (default all)
+      - -d       decompress
+      - -k       keep original
+    examples:
+      - description: Compress with 8 threads
+        command: pigz -p 8 big.csv
+      - description: Tar + pigz pipeline
+        command: tar -cf - data/ | pigz -p 8 > data.tar.gz
+    gotchas:
+      - "`pigz`'s output reads with any gzip — but decompression is *not* parallelized in pigz, since the gzip format doesn't allow it."
+    tags: [pigz, gzip, parallel]
+
+  - id: archive-unzip-quiet
+    title: Unzip with overwrite control
+    category: archive
+    command: unzip -o <file.zip> -d <dest>
+    explanation: |
+      `-o` overwrites without prompting (the default behavior is interactive
+      which breaks scripts). `-q` quiets output for cleaner CI logs.
+    flags:
+      - -o   overwrite without prompt
+      - -n   never overwrite
+      - -q   quiet
+      - -d <dir>   destination
+      - -l   list contents
+    examples:
+      - description: Scriptable extract
+        command: unzip -oq release.zip -d ./release
+      - description: List before extracting
+        command: unzip -l release.zip | less
+    gotchas:
+      - "Zip files can store the same filename twice with different content — `-o` silently keeps the *last* one."
+    tags: [unzip, zip]
+
+  - id: archive-7z-encrypt
+    title: Create an encrypted 7z archive
+    category: archive
+    command: 7z a -p<password> -mhe=on <out.7z> <path>
+    explanation: |
+      `-mhe=on` encrypts filenames in addition to content. Decent option for
+      shipping a snapshot with sensitive paths over insecure transport.
+    flags:
+      - a              add (create or append)
+      - -p<pw>         password
+      - -mhe=on        encrypt filenames
+      - -mx=9          max compression
+      - -mmt=on        multithread
+    examples:
+      - description: Encrypted snapshot
+        command: 7z a -p"$ARCHIVE_PASS" -mhe=on snapshot.7z ./project
+    gotchas:
+      - "Password on the CLI leaks to `ps`/history — prefer interactive prompt by passing `-p` with no value."
+    dangerous: true
+    tags: [7z, encrypt, archive]

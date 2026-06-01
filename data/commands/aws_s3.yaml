@@ -1,0 +1,122 @@
+category: aws_s3
+commands:
+  - id: s3-ls-recursive
+    title: List bucket contents
+    category: aws_s3
+    command: aws s3 ls s3://<bucket>/<prefix>/ --recursive --human-readable --summarize
+    explanation: |
+      `--summarize` adds total object count and total size — handy for sizing
+      a download before you commit to it.
+    flags:
+      - --recursive
+      - --human-readable
+      - --summarize
+      - --profile <name>
+    examples:
+      - description: Size up a prefix
+        command: aws s3 ls s3://my-bucket/datasets/2026/ --recursive --human-readable --summarize
+      - description: Top-level only
+        command: aws s3 ls s3://my-bucket/
+    gotchas:
+      - "Missing trailing `/` after a prefix matches by string prefix and can hit unrelated objects."
+    tags: [aws, s3, list]
+
+  - id: s3-cp-single
+    title: Copy a single object up or down
+    category: aws_s3
+    command: aws s3 cp <src> <dst>
+    explanation: |
+      Direction is inferred from the `s3://` prefix on src/dst. For big files,
+      the CLI auto-multiparts; tune with `s3 max_concurrent_requests` in
+      `~/.aws/config`.
+    flags:
+      - --sse AES256|aws:kms
+      - --storage-class STANDARD|INTELLIGENT_TIERING|GLACIER
+      - --acl bucket-owner-full-control
+      - --quiet
+    examples:
+      - description: Download a checkpoint
+        command: aws s3 cp s3://models/runs/abc123/model.safetensors ./model.safetensors
+      - description: Upload with server-side encryption
+        command: aws s3 cp ./model.safetensors s3://models/runs/abc123/ --sse AES256
+    gotchas:
+      - "Failed multi-part uploads leave hidden parts in the bucket that you still pay for — `aws s3api list-multipart-uploads` to find them, `abort-multipart-upload` to clean up."
+    tags: [aws, s3, copy]
+
+  - id: s3-sync
+    title: Sync a directory with a prefix
+    category: aws_s3
+    command: aws s3 sync <src> <dst>
+    explanation: |
+      One-way mirror. Only transfers new/changed files (size + mtime check by
+      default). Add `--delete` for a true mirror.
+    flags:
+      - --delete
+      - --exclude "*" --include "*.parquet"
+      - --dryrun
+      - --size-only
+    examples:
+      - description: Mirror a local dataset up
+        command: aws s3 sync ./data s3://my-bucket/data --delete
+      - description: Only parquet files
+        command: aws s3 sync ./data s3://my-bucket/data --exclude "*" --include "*.parquet"
+      - description: Preview a destructive sync
+        command: aws s3 sync ./data s3://my-bucket/data --delete --dryrun
+    gotchas:
+      - "`--delete` removes objects on the destination that don't exist on the source — always `--dryrun` first."
+    dangerous: true
+    tags: [aws, s3, sync, mirror]
+
+  - id: s3-presign
+    title: Generate a presigned URL
+    category: aws_s3
+    command: aws s3 presign s3://<bucket>/<key> --expires-in <seconds>
+    explanation: |
+      Returns a time-limited HTTPS URL anyone can use to download. Good for
+      sharing a single dataset/model file without granting bucket access.
+    flags:
+      - --expires-in <s>    default 3600, max 604800 (7 days) for sigv4
+    examples:
+      - description: 1-day link
+        command: aws s3 presign s3://my-bucket/report.pdf --expires-in 86400
+    gotchas:
+      - "Whoever gets the URL gets the file — treat presigned URLs like passwords."
+    tags: [aws, s3, share]
+
+  - id: s3-rm
+    title: Delete objects
+    category: aws_s3
+    command: aws s3 rm s3://<bucket>/<prefix> --recursive
+    explanation: |
+      With `--recursive`, deletes every object under the prefix. There is no
+      trash can — only versioning saves you.
+    flags:
+      - --recursive
+      - --exclude "*" --include "*.tmp"
+      - --dryrun
+    examples:
+      - description: Preview destructive cleanup
+        command: aws s3 rm s3://my-bucket/scratch --recursive --dryrun
+      - description: Wipe a scratch prefix
+        command: aws s3 rm s3://my-bucket/scratch --recursive
+    gotchas:
+      - "On versioned buckets, `rm` creates a delete marker; previous versions still exist (and bill) until lifecycle removes them."
+    dangerous: true
+    tags: [aws, s3, delete]
+
+  - id: s3api-list-versions
+    title: List object versions on a versioned bucket
+    category: aws_s3
+    command: aws s3api list-object-versions --bucket <bucket> --prefix <key>
+    explanation: |
+      `aws s3` hides versions; `aws s3api` exposes them. Use this to recover
+      a deleted file or confirm what versioning is actually storing.
+    flags:
+      - --bucket <name>
+      - --prefix <key>
+      - --max-items <n>
+    examples:
+      - description: Find versions of a recently-deleted file
+        command: aws s3api list-object-versions --bucket my-bucket --prefix path/to/file.csv
+    gotchas: []
+    tags: [aws, s3, versioning]

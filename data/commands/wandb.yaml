@@ -1,0 +1,95 @@
+category: wandb
+commands:
+  - id: wandb-login
+    title: Authenticate the W&B CLI
+    category: wandb
+    command: wandb login
+    explanation: |
+      Prompts for an API key (wandb.ai/authorize) and stores it in
+      `~/.netrc`. For self-hosted instances, pass `--host`.
+    flags:
+      - --host <url>
+      - --relogin
+      - --anonymously
+    examples:
+      - description: Standard login
+        command: wandb login
+      - description: Non-interactive (CI)
+        command: wandb login --host https://wandb.example.com "$WANDB_API_KEY"
+    gotchas:
+      - "Key lives in `~/.netrc` in plaintext — set `WANDB_API_KEY` env var instead on shared boxes and skip the login command."
+    tags: [wandb, auth]
+
+  - id: wandb-offline-sync
+    title: Sync offline runs to the cloud
+    category: wandb
+    command: wandb sync <run-dir>
+    explanation: |
+      When training without network (HPC compute nodes, airgapped boxes), set
+      `WANDB_MODE=offline` to log to disk. Sync them later from any networked
+      box.
+    flags:
+      - --sync-all   sync every offline run under wandb/
+      - --clean      delete after upload
+    examples:
+      - description: Offline run on a compute node
+        command: WANDB_MODE=offline python train.py
+      - description: Push them all from the login node
+        command: wandb sync --sync-all --clean wandb/
+    gotchas:
+      - "The run directory pattern is `wandb/offline-run-<timestamp>-<id>`."
+    tags: [wandb, offline, sync]
+
+  - id: wandb-sweep-create
+    title: Create a hyperparameter sweep
+    category: wandb
+    command: wandb sweep <sweep.yaml>
+    explanation: |
+      Registers the sweep config with the W&B controller. Prints a sweep ID
+      that you feed to `wandb agent` to start workers.
+    flags:
+      - --project <name>
+      - --entity <name>
+    examples:
+      - description: Define + register a sweep
+        command: wandb sweep --project my-proj sweep.yaml
+    gotchas:
+      - "Re-running `wandb sweep` creates a *new* sweep — use the ID from the first call to add more agents."
+    tags: [wandb, sweep, hparam]
+
+  - id: wandb-agent-run
+    title: Start a sweep agent
+    category: wandb
+    command: wandb agent <entity/project/sweep_id>
+    explanation: |
+      Pulls trial configs from the sweep controller and runs your training
+      script. Spawn multiple agents in parallel (one per GPU) for free
+      parallelism.
+    flags:
+      - --count <n>     stop after N trials
+    examples:
+      - description: Run forever, one trial at a time
+        command: wandb agent me/my-proj/abc123
+      - description: One agent per GPU
+        command: 'for i in 0 1 2 3; do CUDA_VISIBLE_DEVICES=$i wandb agent me/my-proj/abc123 & done; wait'
+    gotchas:
+      - "Agent inherits env vars — `CUDA_VISIBLE_DEVICES` must be set *before* `wandb agent` for the worker to see it."
+    tags: [wandb, agent, sweep]
+
+  - id: wandb-artifact-get
+    title: Download a W&B artifact
+    category: wandb
+    command: wandb artifact get <entity/project/name:version>
+    explanation: |
+      Pulls a versioned artifact (model, dataset, etc.) into `./artifacts/`.
+      Reproducibility nice-to-have: lock to a sha-style version not `latest`.
+    flags:
+      - --root <path>   download dir
+    examples:
+      - description: Get a specific model version
+        command: wandb artifact get me/my-proj/my-model:v3
+      - description: Pin to alias
+        command: wandb artifact get me/my-proj/dataset:production
+    gotchas:
+      - "`:latest` moves over time — pin a numeric version for repro experiments."
+    tags: [wandb, artifact]

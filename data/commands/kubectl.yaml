@@ -1,0 +1,177 @@
+category: kubectl
+commands:
+  - id: kubectl-get-pods
+    title: List pods in a namespace
+    category: kubectl
+    command: kubectl get pods -n <namespace> -o wide
+    explanation: |
+      `-o wide` adds node, IP, and image columns. Drop `-n` to use your
+      current namespace context. `-A` lists pods across all namespaces.
+    flags:
+      - -n <ns>  namespace
+      - -A       all namespaces
+      - -o wide  extra columns
+      - -w       watch
+      - -l key=val  label selector
+    examples:
+      - description: Pods in the ml-training namespace
+        command: kubectl get pods -n ml-training -o wide
+      - description: Watch pods come up with a label
+        command: kubectl get pods -l app=trainer -w
+    gotchas:
+      - "Without `-n`, you only see the current context's namespace — set it with `kubens` or `kubectl config set-context --current --namespace=...`."
+    tags: [kubectl, k8s, pods]
+
+  - id: kubectl-logs-follow
+    title: Tail logs from a pod
+    category: kubectl
+    command: kubectl logs -f <pod> -c <container>
+    explanation: |
+      `-f` follows like `tail -f`. `-c` selects a container in a multi-container
+      pod. `--previous` reads the last terminated container — invaluable for
+      crash loops.
+    flags:
+      - -f             follow
+      - -c <name>      container
+      - --previous     last terminated container
+      - --tail=N       last N lines only
+      - --since=10m    time window
+    examples:
+      - description: Follow the trainer container
+        command: kubectl logs -f trainer-xyz123 -c trainer
+      - description: Inspect crashloop output
+        command: kubectl logs --previous trainer-xyz123
+    gotchas:
+      - "If the pod has multiple containers and you omit `-c`, kubectl picks one and prints a warning — be explicit."
+    tags: [kubectl, logs, debug]
+
+  - id: kubectl-exec-shell
+    title: Open a shell in a running pod
+    category: kubectl
+    command: kubectl exec -it <pod> -c <container> -- /bin/bash
+    explanation: |
+      `-it` allocates a TTY and pipes stdin. The `--` separates kubectl flags
+      from the command run inside the container. Use `/bin/sh` on minimal
+      images (alpine, distroless-debug).
+    flags:
+      - -it       interactive + TTY
+      - -c <name> container
+    examples:
+      - description: Drop into a debug shell
+        command: kubectl exec -it trainer-xyz123 -- /bin/bash
+      - description: Run a one-off command
+        command: kubectl exec trainer-xyz123 -- nvidia-smi
+    gotchas:
+      - Distroless images often lack a shell entirely — use ephemeral debug containers (`kubectl debug`) instead.
+    tags: [kubectl, exec, debug]
+
+  - id: kubectl-port-forward
+    title: Forward a local port to a pod
+    category: kubectl
+    command: kubectl port-forward <pod-or-svc> <local>:<remote>
+    explanation: |
+      Tunnels a local port to a pod or service. Handy for hitting an in-cluster
+      Jupyter, MLflow, or TensorBoard from your laptop without exposing it.
+    flags:
+      - svc/<name>   forward to a Service
+      - pod/<name>   forward to a Pod
+    examples:
+      - description: Reach an in-cluster MLflow UI on localhost:5000
+        command: kubectl port-forward svc/mlflow 5000:5000 -n mlops
+      - description: TensorBoard on local 6006
+        command: kubectl port-forward pod/tensorboard-xyz 6006:6006
+    gotchas:
+      - "Process dies when terminal closes — wrap with `nohup` or run inside `tmux` for long sessions."
+    tags: [kubectl, port-forward, debug]
+
+  - id: kubectl-describe
+    title: Describe a resource (events included)
+    category: kubectl
+    command: kubectl describe <kind> <name> -n <namespace>
+    explanation: |
+      Prints full state plus the events feed — usually where you find the real
+      cause of a stuck pod (image pull error, scheduling failure, OOM kill).
+    flags: []
+    examples:
+      - description: Why is this pod stuck?
+        command: kubectl describe pod trainer-xyz123 -n ml-training
+      - description: Node pressure investigation
+        command: kubectl describe node gpu-node-1
+    gotchas: []
+    tags: [kubectl, debug, events]
+
+  - id: kubectl-apply-file
+    title: Apply or update a manifest
+    category: kubectl
+    command: kubectl apply -f <file-or-dir>
+    explanation: |
+      Declarative create-or-update. Point at a file, a directory of YAMLs, or
+      `-` to read from stdin. `--dry-run=client` previews without sending.
+    flags:
+      - -f <path>           file or directory
+      - -k <kustomize-dir>  kustomize overlay
+      - --dry-run=client    local preview
+      - --server-side       server-side apply (better diffs)
+    examples:
+      - description: Apply every YAML in a directory
+        command: kubectl apply -f k8s/
+      - description: Preview the diff without changes
+        command: kubectl diff -f deploy.yaml
+    gotchas:
+      - "`apply` honors `last-applied-configuration` annotations — mixing `apply` with `edit`/`patch` can confuse 3-way merges."
+    tags: [kubectl, apply, deploy]
+
+  - id: kubectl-top
+    title: Live CPU / memory usage
+    category: kubectl
+    command: kubectl top pod -n <namespace>
+    explanation: |
+      Requires metrics-server installed in the cluster. Quick way to find the
+      memory hog without leaving the terminal.
+    flags:
+      - --containers    per-container breakdown
+      - --sort-by=cpu   or memory
+    examples:
+      - description: Hot pods sorted by memory
+        command: kubectl top pod --sort-by=memory -A
+      - description: Per-container CPU in a namespace
+        command: kubectl top pod --containers -n ml-training
+    gotchas:
+      - Fails with `Metrics API not available` if metrics-server isn't installed.
+    tags: [kubectl, metrics, monitoring]
+
+  - id: kubectl-context-switch
+    title: Switch cluster / namespace context
+    category: kubectl
+    command: kubectl config use-context <name>
+    explanation: |
+      Switches the active context (cluster + user + namespace). `kubectx` and
+      `kubens` are friendlier wrappers worth installing.
+    flags: []
+    examples:
+      - description: List contexts
+        command: kubectl config get-contexts
+      - description: Set the default namespace for the current context
+        command: kubectl config set-context --current --namespace=ml-training
+    gotchas:
+      - "Sharing a single `~/.kube/config` between projects is risky — accidentally `apply`-ing prod manifests has ended careers."
+    dangerous: true
+    tags: [kubectl, context]
+
+  - id: kubectl-scale-deployment
+    title: Scale a deployment
+    category: kubectl
+    command: kubectl scale deployment/<name> --replicas=<n>
+    explanation: |
+      Manual scale-up or scale-down. For autoscaling, see `kubectl autoscale`
+      or HorizontalPodAutoscaler manifests.
+    flags:
+      - --replicas=N
+    examples:
+      - description: Scale serving up to 5 replicas
+        command: kubectl scale deployment/inference --replicas=5
+      - description: Drain to zero (cost saver overnight)
+        command: kubectl scale deployment/inference --replicas=0
+    gotchas:
+      - "Scaling to zero leaves the Deployment object — pods come back if `replicas` is later changed via `apply`."
+    tags: [kubectl, scale]

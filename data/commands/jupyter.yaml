@@ -1,0 +1,112 @@
+category: jupyter
+commands:
+  - id: jupyter-lab-remote
+    title: Start JupyterLab bound to a remote port
+    category: jupyter
+    command: jupyter lab --no-browser --port=8888 --ip=0.0.0.0
+    explanation: |
+      `--no-browser` is essential on headless servers. `--ip=0.0.0.0` allows
+      external connections (combine with an SSH tunnel for safety rather than
+      opening firewall ports).
+    flags:
+      - --no-browser
+      - --port=<n>
+      - --ip=0.0.0.0
+      - --ServerApp.token=<tok>
+      - --ServerApp.password=<hash>
+    examples:
+      - description: Headless server + local SSH tunnel
+        command: |
+          # remote: jupyter lab --no-browser --port=8888
+          # local:  ssh -L 8888:localhost:8888 user@host
+      - description: Custom token
+        command: jupyter lab --no-browser --port=8888 --ServerApp.token=$(openssl rand -hex 32)
+    gotchas:
+      - "Binding to `0.0.0.0` without a strong token exposes arbitrary code execution to anyone on the network."
+    dangerous: true
+    tags: [jupyter, lab, remote]
+
+  - id: jupyter-nbconvert-html
+    title: Render a notebook to HTML
+    category: jupyter
+    command: jupyter nbconvert --to html <notebook.ipynb>
+    explanation: |
+      Produces a static HTML report. Use `--no-input` for stakeholder-facing
+      output, `--execute` to re-run cells first for reproducibility.
+    flags:
+      - --to html|pdf|markdown|script
+      - --execute
+      - --no-input
+      - --output <name>
+      - --template lab|classic|reveal
+    examples:
+      - description: Stakeholder report (no code)
+        command: jupyter nbconvert --to html --no-input --execute analysis.ipynb
+      - description: Strip out the notebook to a .py file
+        command: jupyter nbconvert --to script analysis.ipynb
+    gotchas:
+      - "`--execute` fails the whole convert if a single cell errors — pair with `--allow-errors` for noisy notebooks."
+    tags: [jupyter, nbconvert, report]
+
+  - id: jupyter-papermill-run
+    title: Parameterize and run a notebook
+    category: jupyter
+    command: papermill <input.ipynb> <output.ipynb> -p <key> <value>
+    explanation: |
+      Papermill executes notebooks like scripts and injects parameters into a
+      cell tagged `parameters`. Backbone of notebook-as-pipeline workflows.
+    flags:
+      - -p key value          single param
+      - -y '<yaml>'           inline YAML
+      - -f params.yaml        params file
+      - -k <kernel>           explicit kernel
+    examples:
+      - description: Sweep parameters from a shell loop
+        command: |
+          for lr in 0.001 0.01 0.1; do
+            papermill train.ipynb out/train_lr_${lr}.ipynb -p lr $lr
+          done
+    gotchas:
+      - "Target notebook must have a cell tagged `parameters` — without it, injected params silently get added at the top."
+    tags: [jupyter, papermill, automation]
+
+  - id: jupyter-kernel-install
+    title: Register a conda/venv kernel with Jupyter
+    category: jupyter
+    command: python -m ipykernel install --user --name <env> --display-name "<label>"
+    explanation: |
+      Tells Jupyter about an environment as a selectable kernel. Run *inside*
+      the activated env after `pip install ipykernel`.
+    flags:
+      - --user                    install for current user
+      - --name <env>              internal id
+      - --display-name "<label>"  shown in UI
+    examples:
+      - description: Register the active conda env
+        command: python -m ipykernel install --user --name myproj --display-name "Python (myproj)"
+      - description: List registered kernels
+        command: jupyter kernelspec list
+      - description: Remove an old kernel
+        command: jupyter kernelspec remove myproj
+    gotchas:
+      - "Kernel paths embed the env's absolute Python path — moving the env breaks the kernel; reinstall instead of editing JSON."
+    tags: [jupyter, ipykernel, conda]
+
+  - id: jupyter-nbstripout
+    title: Strip outputs from notebooks before commit
+    category: jupyter
+    command: nbstripout <notebook.ipynb>
+    explanation: |
+      Removes cell outputs (which bloat git diffs). Install as a git filter
+      with `nbstripout --install` to do it automatically on every commit.
+    flags:
+      - --install   register as git filter
+      - --status    show filter status
+    examples:
+      - description: Strip in place
+        command: nbstripout notebooks/*.ipynb
+      - description: Auto-strip on every git commit
+        command: nbstripout --install
+    gotchas:
+      - "Once installed as a filter, outputs disappear silently on `git add` — collaborators who want outputs preserved must opt out."
+    tags: [jupyter, git, nbstripout]

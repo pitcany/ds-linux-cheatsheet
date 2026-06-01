@@ -1,0 +1,135 @@
+category: databases
+commands:
+  - id: psql-connect
+    title: Connect to a Postgres database
+    category: databases
+    command: psql -h <host> -U <user> -d <db> -p <port>
+    explanation: |
+      Set `PGPASSWORD` env var or use a `~/.pgpass` file to skip the prompt.
+      `\?` lists meta-commands once you're in.
+    flags:
+      - -h <host>
+      - -U <user>
+      - -d <db>
+      - -p <port>
+      - -W   force prompt
+      - -c "<sql>"  run one query and exit
+    examples:
+      - description: Interactive shell
+        command: psql -h db.example.com -U analyst -d warehouse
+      - description: One-shot query
+        command: psql "$DATABASE_URL" -c "SELECT count(*) FROM events;"
+      - description: Connection URL form
+        command: psql "postgresql://user:pw@host:5432/db"
+    gotchas:
+      - "Passwords on the command line leak into `ps`/history — use `~/.pgpass` (mode 0600) instead."
+    tags: [postgres, psql, sql]
+
+  - id: psql-meta-commands
+    title: Useful psql backslash commands
+    category: databases
+    command: psql -d <db>
+    explanation: |
+      Once inside, the `\` meta-commands replace half of pgAdmin. Memorize the
+      handful below and you rarely need a GUI.
+    flags: []
+    examples:
+      - description: List databases / tables / schemas
+        command: |
+          \l       -- databases
+          \dn      -- schemas
+          \dt      -- tables in current schema
+          \dt+ *.* -- all tables with sizes
+      - description: Describe a table
+        command: \d+ public.events
+      - description: Run a file
+        command: \i analysis.sql
+      - description: Time a query
+        command: \timing on
+      - description: Export query as CSV
+        command: \copy (SELECT * FROM events LIMIT 1000) TO 'sample.csv' CSV HEADER
+    gotchas:
+      - "`\\copy` runs client-side (good for permissions); `COPY` runs on the server and needs filesystem access there."
+    tags: [postgres, psql, meta]
+
+  - id: pg-dump-restore
+    title: Dump and restore a Postgres database
+    category: databases
+    command: pg_dump -Fc -h <host> -U <user> -d <db> -f <file.dump>
+    explanation: |
+      `-Fc` is the custom (compressed) format restored by `pg_restore`. Plain
+      SQL dumps work with `psql` but are slower and larger.
+    flags:
+      - -Fc   custom format
+      - -Fp   plain SQL
+      - -Fd   directory (allows parallel)
+      - -j N  parallel jobs (with -Fd)
+      - --schema=<name>
+      - --data-only / --schema-only
+    examples:
+      - description: Custom-format dump
+        command: pg_dump -Fc -h db.example.com -U analyst -d warehouse -f warehouse.dump
+      - description: Restore in parallel
+        command: pg_restore -j 4 -h newhost -U analyst -d warehouse warehouse.dump
+      - description: Schema-only diff
+        command: pg_dump --schema-only -d warehouse > schema.sql
+    gotchas:
+      - "Restore re-creates indexes — for big dumps, dump with `--no-owner --no-privileges` to avoid permission mismatches across environments."
+    tags: [postgres, pg_dump, backup]
+
+  - id: sqlite3-quick
+    title: Inspect a SQLite database from the CLI
+    category: databases
+    command: sqlite3 <file.db>
+    explanation: |
+      Lightweight REPL. Dot-commands (`.tables`, `.schema`, `.mode`) cover
+      most exploration needs without writing SQL.
+    flags: []
+    examples:
+      - description: Schema + sample
+        command: |
+          sqlite3 events.db <<'SQL'
+          .mode column
+          .headers on
+          .tables
+          SELECT * FROM events LIMIT 5;
+          SQL
+      - description: Export a table to CSV
+        command: |
+          sqlite3 -header -csv events.db "SELECT * FROM events;" > events.csv
+      - description: Import a CSV as a table
+        command: |
+          sqlite3 events.db <<'SQL'
+          .mode csv
+          .import events.csv events
+          SQL
+    gotchas:
+      - "`.import` infers types as TEXT — cast columns explicitly if you need numeric/date types."
+    tags: [sqlite, sql]
+
+  - id: redis-cli-basics
+    title: Talk to a Redis instance
+    category: databases
+    command: redis-cli -h <host> -p <port> -a <password>
+    explanation: |
+      Connects to a Redis server. Most production deploys require `-a` (auth)
+      or TLS via `--tls`. Be careful — many commands are O(N) over the whole
+      keyspace.
+    flags:
+      - -h <host>
+      - -p <port>
+      - -a <pw>
+      - -n <db>     numeric db index
+      - --tls
+      - --scan --pattern "<glob>"
+    examples:
+      - description: Quick ping
+        command: redis-cli -h cache.example.com -p 6379 -a "$REDIS_PASS" ping
+      - description: Safely iterate keys (don't use KEYS in prod)
+        command: redis-cli --scan --pattern 'user:*'
+      - description: Memory usage of a key
+        command: redis-cli MEMORY USAGE user:42
+    gotchas:
+      - "`KEYS *` blocks the server while it scans the entire keyspace — use `SCAN` in production."
+    dangerous: true
+    tags: [redis, cache]

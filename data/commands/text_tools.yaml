@@ -1,0 +1,164 @@
+category: text_tools
+commands:
+  - id: text-sort-numeric-unique
+    title: Sort, dedupe, count
+    category: text_tools
+    command: sort <file> | uniq -c | sort -nr
+    explanation: |
+      The canonical "top N by frequency" pipeline. `sort` first (uniq only
+      dedupes adjacent lines), then `uniq -c` to count, then numeric reverse
+      sort.
+    flags:
+      - sort -n     numeric
+      - sort -k <f> sort by field
+      - sort -t '<d>'  delimiter
+      - sort -u     dedup as you sort
+      - sort -h     human-numeric (10K, 1G)
+      - uniq -c     prefix counts
+      - uniq -d     duplicates only
+      - uniq -u     unique only
+    examples:
+      - description: Top 10 error codes in a log
+        command: awk '{print $7}' access.log | sort | uniq -c | sort -nr | head -10
+      - description: Sort a CSV by a column
+        command: sort -t, -k3 -n -r data.csv
+      - description: Dedupe without sorting (awk trick — preserves order)
+        command: awk '!seen[$0]++' file
+    gotchas:
+      - "`uniq` only collapses *adjacent* duplicates — always sort first unless using the awk one-liner."
+      - "Default `sort` is lexical: `10` sorts before `2`. Use `-n` for numeric."
+    tags: [sort, uniq, dedup, count]
+
+  - id: text-tr-translate
+    title: Translate or delete characters
+    category: text_tools
+    command: tr <set1> <set2>
+    explanation: |
+      Stream editor for single characters and character classes. Faster than
+      `sed` for char-level transforms like upper/lower or stripping CRs.
+    flags:
+      - -d   delete chars in set1
+      - -s   squeeze repeated chars
+      - -c   complement set1
+    examples:
+      - description: Upper to lower
+        command: tr 'A-Z' 'a-z' < file
+      - description: Strip Windows CRs
+        command: tr -d '\r' < file.crlf > file.lf
+      - description: Collapse runs of whitespace into single spaces
+        command: tr -s ' \t' ' ' < file
+      - description: Keep only digits
+        command: tr -cd '0-9' < file
+    gotchas:
+      - "`tr` reads stdin only — no file argument; redirect explicitly."
+    tags: [tr, transform]
+
+  - id: text-paste-columns
+    title: Glue files side-by-side as columns
+    category: text_tools
+    command: paste <file1> <file2>
+    explanation: |
+      Joins corresponding lines from multiple files into TSV columns. The
+      inverse of `cut`. With `-s`, transposes a single file's rows into one
+      tab-separated line.
+    flags:
+      - -d <delim>   change separator (default tab)
+      - -s          serial (transpose)
+    examples:
+      - description: Two files into a CSV
+        command: paste -d, names.txt scores.txt > combined.csv
+      - description: Convert a list to a comma-separated line
+        command: paste -sd, items.txt
+    gotchas: []
+    tags: [paste, columns, join]
+
+  - id: text-join-on-key
+    title: Relational join on a shared key
+    category: text_tools
+    command: join -t, -1 <field1> -2 <field2> <file1> <file2>
+    explanation: |
+      SQL-style inner join on sorted files. Both inputs **must be sorted on
+      the join column** with the same collation, or join silently drops rows.
+    flags:
+      - -t <delim>   field separator
+      - -1 <n>       key field in file1
+      - -2 <n>       key field in file2
+      - -a 1|2       outer join (include unmatched from side N)
+      - -e <str>     fill missing values
+      - -o <format>  output fields
+    examples:
+      - description: Join users and orders by user id
+        command: |
+          sort -t, -k1 users.csv > users.s
+          sort -t, -k2 orders.csv > orders.s
+          join -t, -1 1 -2 2 users.s orders.s
+      - description: Left outer join with default value
+        command: join -t, -a 1 -e 'NULL' -o '1.1 1.2 2.3' users.s orders.s
+    gotchas:
+      - "Inputs must be lexically sorted on the join key — even numeric IDs need string sort to match join's comparison."
+    tags: [join, merge, relational]
+
+  - id: text-comm-set-ops
+    title: Set operations between two sorted files
+    category: text_tools
+    command: comm <file1> <file2>
+    explanation: |
+      Outputs three columns: lines only in file1, only in file2, and in both.
+      Suppress columns with `-1`, `-2`, `-3` to get only what you want.
+    flags:
+      - -1   suppress lines only in file1
+      - -2   suppress lines only in file2
+      - -3   suppress shared lines
+    examples:
+      - description: Lines only in file1
+        command: comm -23 file1 file2
+      - description: Lines only in file2
+        command: comm -13 file1 file2
+      - description: Common lines (intersection)
+        command: comm -12 file1 file2
+    gotchas:
+      - "Files must be sorted; mismatched locale collation can produce wrong results — `LC_ALL=C sort` is the safest pre-step."
+    tags: [comm, diff, set]
+
+  - id: text-pr-paginate
+    title: Format a stream into columns
+    category: text_tools
+    command: column -t -s ','
+    explanation: |
+      Pretty-prints CSV/TSV as aligned columns for human reading. Drop-in
+      replacement for the cluttered output of `cat data.csv`.
+    flags:
+      - -t            table mode
+      - -s '<delim>'  input separator
+      - -N a,b,c      column names (util-linux)
+    examples:
+      - description: Render a CSV
+        command: column -t -s, data.csv | less -S
+      - description: TSV from a query
+        command: psql -At -F$'\t' -c "SELECT * FROM t" | column -t -s $'\t'
+    gotchas:
+      - "`column -t` chokes on embedded delimiters inside quoted CSV fields — use `csvlook` (from csvkit) for real CSV."
+    tags: [column, format, display]
+
+  - id: text-shuf-sample
+    title: Random sample N lines
+    category: text_tools
+    command: shuf -n <n> <file>
+    explanation: |
+      Pulls a uniform random sample. Much faster than loading into pandas for
+      a quick "what do typical rows look like" peek.
+    flags:
+      - -n <n>     N lines
+      - -i a-b     range of integers
+      - -e a b c   from explicit args
+      - --random-source <file>  reproducible
+    examples:
+      - description: 100 random rows
+        command: shuf -n 100 data.csv
+      - description: Reproducible sample
+        command: shuf -n 1000 --random-source=/dev/zero data.csv > sample.csv
+      - description: Reservoir sample 1% of huge file (awk)
+        command: 'awk ''BEGIN{srand()} rand() < 0.01'' big.csv'
+    gotchas:
+      - "`shuf` loads the whole file into memory — for terabyte files, use the awk reservoir-sampling trick or `terashuf`."
+    tags: [shuf, sample, random]

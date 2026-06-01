@@ -1,0 +1,98 @@
+category: huggingface
+commands:
+  - id: hf-login
+    title: Authenticate the Hugging Face CLI
+    category: huggingface
+    command: huggingface-cli login
+    explanation: |
+      Prompts for a token (create one at huggingface.co/settings/tokens) and
+      stashes it in `~/.cache/huggingface/token`. Needed for private repos,
+      gated models, and uploads.
+    flags:
+      - --token <tok>   non-interactive (CI)
+    examples:
+      - description: Interactive login
+        command: huggingface-cli login
+      - description: Non-interactive (CI)
+        command: huggingface-cli login --token "$HF_TOKEN" --add-to-git-credential
+    gotchas:
+      - Token is stored in plaintext on disk — use a *read* token for inference machines, a *write* token only where you actually push.
+    tags: [huggingface, hf, auth]
+
+  - id: hf-download-model
+    title: Download a model or dataset snapshot
+    category: huggingface
+    command: huggingface-cli download <repo-id> --local-dir <path>
+    explanation: |
+      Pulls all files for a repo (model, dataset, or space). `--local-dir`
+      gives you a flat checkout instead of the content-addressed cache layout.
+    flags:
+      - --local-dir <path>
+      - --revision <branch|sha|tag>
+      - --include "*.safetensors"
+      - --exclude "*.bin"
+      - --resume-download
+    examples:
+      - description: Just the safetensors
+        command: huggingface-cli download meta-llama/Llama-3-8B --include "*.safetensors" --local-dir ./llama3
+      - description: A specific dataset revision
+        command: huggingface-cli download --repo-type dataset squad --revision refs/convert/parquet --local-dir ./squad
+    gotchas:
+      - "Default cache is `~/.cache/huggingface/hub` — on shared boxes set `HF_HOME` somewhere with space."
+      - "Symlinks in `--local-dir` point to the cache by default; pass `--local-dir-use-symlinks False` to actually copy."
+    tags: [huggingface, hf, download]
+
+  - id: hf-upload
+    title: Upload files to a repo
+    category: huggingface
+    command: huggingface-cli upload <repo-id> <local-path> <repo-path>
+    explanation: |
+      Pushes a file or directory to a model/dataset/space repo. The CLI handles
+      LFS automatically for big files.
+    flags:
+      - --repo-type model|dataset|space
+      - --revision <branch>
+      - --commit-message "<msg>"
+      - --create-pr
+    examples:
+      - description: Push a checkpoint
+        command: huggingface-cli upload myuser/my-model ./checkpoint.safetensors model.safetensors
+      - description: Upload a whole directory as a dataset
+        command: huggingface-cli upload myuser/my-dataset ./data . --repo-type dataset
+    gotchas:
+      - Make sure the token used has *write* permission to that namespace.
+    tags: [huggingface, hf, upload]
+
+  - id: hf-repo-create
+    title: Create a new repo from the CLI
+    category: huggingface
+    command: huggingface-cli repo create <name> --type <model|dataset|space>
+    explanation: |
+      Creates a new empty repo under your namespace (or an org you belong to).
+      Faster than clicking through the web UI when scripting releases.
+    flags:
+      - --type model|dataset|space
+      - --organization <org>
+      - --private
+    examples:
+      - description: New private dataset under an org
+        command: huggingface-cli repo create my-corpus --type dataset --organization myorg --private
+    gotchas: []
+    tags: [huggingface, hf, repo]
+
+  - id: hf-cache-scan
+    title: Inspect / prune the local HF cache
+    category: huggingface
+    command: huggingface-cli scan-cache
+    explanation: |
+      Lists every cached repo with size and last-used time. Pair with
+      `delete-cache` (interactive TUI) to reclaim disk.
+    flags: []
+    examples:
+      - description: See what's eating your disk
+        command: huggingface-cli scan-cache -v
+      - description: Interactive cleanup
+        command: huggingface-cli delete-cache
+    gotchas:
+      - "Cache lives under `$HF_HOME` (default `~/.cache/huggingface`); move it to fast local disk for training speed."
+    tags: [huggingface, hf, cache, disk]
