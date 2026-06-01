@@ -1,0 +1,277 @@
+category: uv
+commands:
+  - id: uv-init-project
+    title: Initialize a uv-managed project
+    category: uv
+    command: uv init <name>
+    explanation: |
+      Scaffolds a `pyproject.toml`, `.python-version`, a stub package, and a
+      `README`. Run inside an existing directory with no name to init in place.
+    flags:
+      - --lib            library layout (src/)
+      - --app            application layout (default)
+      - --package        force packaged layout
+      - --python 3.12    pin Python version
+      - --no-readme
+    examples:
+      - description: New app
+        command: uv init my-app
+      - description: Library with src/ layout pinned to 3.12
+        command: uv init --lib --python 3.12 my-lib
+      - description: Init in current dir
+        command: uv init
+    gotchas:
+      - "Writes `.python-version` — commit it so collaborators get the same interpreter automatically."
+    tags: [uv, init, project]
+
+  - id: uv-add-dep
+    title: Add a dependency
+    category: uv
+    command: uv add <pkg>
+    explanation: |
+      Adds to `pyproject.toml`, resolves, updates `uv.lock`, and installs into
+      the project venv — all in one step. Replaces the `pip install + edit
+      pyproject + pip freeze` dance.
+    flags:
+      - --dev                  dev group
+      - --group <name>         named group (e.g. test, docs)
+      - --optional <extra>     into [project.optional-dependencies]
+      - --editable <path>      editable install
+      - --extra <name>         enable an extra of the added pkg
+      - --index <url>          alternate index
+    examples:
+      - description: Runtime dep
+        command: uv add httpx
+      - description: Pinned version
+        command: uv add "torch>=2.2,<3"
+      - description: Test-time only
+        command: uv add --dev pytest pytest-cov
+      - description: Editable local package
+        command: uv add --editable ../shared-lib
+      - description: From git
+        command: uv add "git+https://github.com/me/pkg@main"
+    gotchas:
+      - "`--dev` and `--group dev` are aliases now — older docs treat them differently."
+      - "Always commit `uv.lock` alongside `pyproject.toml` — that's what makes builds reproducible."
+    tags: [uv, add, deps]
+
+  - id: uv-remove-dep
+    title: Remove a dependency
+    category: uv
+    command: uv remove <pkg>
+    explanation: |
+      Mirror of `uv add` — drops from `pyproject.toml`, re-resolves, updates
+      the lockfile, and uninstalls.
+    flags:
+      - --dev / --group <name>   target a specific group
+    examples:
+      - description: Remove a runtime dep
+        command: uv remove requests
+      - description: Remove from the dev group
+        command: uv remove --dev mypy
+    gotchas:
+      - "Transitive deps stay installed if anything else needs them — `uv tree` shows you who depends on what."
+    tags: [uv, remove, deps]
+
+  - id: uv-sync
+    title: Sync the venv to match the lockfile
+    category: uv
+    command: uv sync
+    explanation: |
+      Hydrates `.venv/` to *exactly* what `uv.lock` says: installs missing
+      packages, upgrades drifted ones, **removes** anything not in the lock.
+      This is the deterministic-build command.
+    flags:
+      - --frozen           fail if lock would change (CI gate)
+      - --locked           require lockfile to be up to date
+      - --no-dev           skip dev groups
+      - --only-group <g>   only that group
+      - --extra <name>     include an optional extra
+      - --all-extras
+      - --reinstall
+    examples:
+      - description: Fresh clone setup
+        command: uv sync
+      - description: CI — fail if lock or pyproject drifted
+        command: uv sync --frozen
+      - description: Production install (no dev deps)
+        command: uv sync --no-dev
+      - description: All extras enabled
+        command: uv sync --all-extras
+    gotchas:
+      - "`uv sync` removes packages not in the lock — installing something via `uv pip install` then running `uv sync` will undo it."
+    tags: [uv, sync, lock]
+
+  - id: uv-lock-update
+    title: Update the lockfile (resolve again)
+    category: uv
+    command: uv lock
+    explanation: |
+      Resolves the dependency graph and writes `uv.lock` without touching the
+      venv. Use after editing `pyproject.toml` by hand, or with `--upgrade` to
+      pull newer versions inside your constraints.
+    flags:
+      - --upgrade               bump everything as far as constraints allow
+      - --upgrade-package <pkg> bump just one
+      - --check                 fail if lock is stale (no write)
+    examples:
+      - description: Refresh lock after editing pyproject by hand
+        command: uv lock
+      - description: Upgrade a single dep
+        command: uv lock --upgrade-package httpx
+      - description: Bump every dep within constraints
+        command: uv lock --upgrade
+      - description: CI guard against stale lock
+        command: uv lock --check
+    gotchas:
+      - "`--upgrade` respects pins like `>=2.0,<3` — it won't cross a major boundary unless you widen the constraint first."
+    tags: [uv, lock, upgrade]
+
+  - id: uv-run-script
+    title: Run a command in the project venv
+    category: uv
+    command: uv run <command>
+    explanation: |
+      Ensures the venv is in sync, then runs the command with the project's
+      Python and deps active. Skips the `source .venv/bin/activate` ritual
+      entirely.
+    flags:
+      - --with <pkg>             add temporary dep just for this run
+      - --no-sync                skip the implicit sync
+      - --python 3.12            override Python
+      - --script <file.py>       run a PEP 723 inline-deps script
+      - --extra <name>
+    examples:
+      - description: Run pytest with project deps
+        command: uv run pytest -q
+      - description: One-shot with a tool not in the project
+        command: uv run --with httpx python -c "import httpx; print(httpx.get('https://example.com').status_code)"
+      - description: Train a model
+        command: uv run python train.py --epochs 10
+      - description: PEP 723 inline-deps script (deps in script header)
+        command: uv run --script analysis.py
+    gotchas:
+      - "Implicit sync runs every invocation — use `--no-sync` in tight loops to avoid the resolver overhead."
+    tags: [uv, run, script]
+
+  - id: uv-python-install
+    title: Install and manage Python interpreters
+    category: uv
+    command: uv python install <version>
+    explanation: |
+      uv ships its own Python distributions (managed builds from Astral). No
+      pyenv, no system Python, no conda needed for interpreters.
+    flags:
+      - install <ver>
+      - list                show installed + available
+      - pin <ver>           write .python-version
+      - find                locate the binary
+      - uninstall <ver>
+    examples:
+      - description: Install 3.12 and 3.13
+        command: uv python install 3.12 3.13
+      - description: List versions
+        command: uv python list
+      - description: Pin this project to 3.12
+        command: uv python pin 3.12
+      - description: Find the binary path
+        command: uv python find 3.12
+    gotchas:
+      - "Pinned via `.python-version` — `uv run`/`uv sync` will auto-install that version if missing, which can surprise CI."
+    tags: [uv, python, interpreter]
+
+  - id: uvx-tool-run
+    title: Run a CLI tool without installing it (uvx)
+    category: uv
+    command: uvx <tool> [args]
+    explanation: |
+      `uvx` is shorthand for `uv tool run` — fetches the tool into a cached
+      isolated env and runs it. Like `pipx run` but much faster.
+    flags:
+      - --from <pkg>      install from a different pkg name than the command
+      - --with <extra>    add extra deps to the tool's env
+      - --python <ver>
+    examples:
+      - description: Format with ruff (no install)
+        command: uvx ruff format .
+      - description: Run black at a pinned version
+        command: uvx black@24.10.0 .
+      - description: Tool whose CLI name differs from its package
+        command: uvx --from "huggingface-hub[cli]" huggingface-cli login
+    gotchas:
+      - "Cached envs live under `$XDG_CACHE_HOME/uv/` — `uv cache prune` reclaims space."
+    tags: [uv, uvx, tool, run]
+
+  - id: uv-tool-install
+    title: Install a CLI tool persistently
+    category: uv
+    command: uv tool install <pkg>
+    explanation: |
+      Like `pipx install` — puts the tool on PATH in its own venv so you don't
+      pollute the project env. Use `uvx` for one-shots, `uv tool install` for
+      tools you reach for daily.
+    flags:
+      - --with <pkg>      extra dep in the tool env
+      - --python <ver>
+      - --force           reinstall
+    examples:
+      - description: Install ruff globally
+        command: uv tool install ruff
+      - description: Install with extras
+        command: uv tool install "mlflow[extras]"
+      - description: Upgrade all installed tools
+        command: uv tool upgrade --all
+      - description: List
+        command: uv tool list
+    gotchas:
+      - "Run `uv tool update-shell` once to make sure `~/.local/bin` is on `PATH`."
+    tags: [uv, tool, install]
+
+  - id: uv-pip-compile
+    title: Generate a requirements.txt from pyproject (pip-tools mode)
+    category: uv
+    command: uv pip compile pyproject.toml -o requirements.txt
+    explanation: |
+      Drop-in `pip-compile` replacement — much faster. Useful for legacy
+      pipelines, Docker layer caching, or environments that don't speak uv.
+    flags:
+      - -o <file>             output
+      - --extra <name>        include extra
+      - --upgrade
+      - --generate-hashes
+      - --python-version 3.12
+      - --strip-extras
+    examples:
+      - description: Compile from pyproject
+        command: uv pip compile pyproject.toml -o requirements.txt
+      - description: With hashes (for trusted-install pipelines)
+        command: uv pip compile pyproject.toml --generate-hashes -o requirements.txt
+      - description: Dev requirements
+        command: uv pip compile --extra dev pyproject.toml -o requirements-dev.txt
+      - description: Sync a venv against a requirements file
+        command: uv pip sync requirements.txt
+    gotchas:
+      - "`uv pip compile`/`sync` operate on a flat requirements model — they ignore `uv.lock`. Pick one workflow (uv-native or pip-compile) per project, don't mix."
+    tags: [uv, pip-compile, requirements]
+
+  - id: uv-tree
+    title: Inspect the dependency tree
+    category: uv
+    command: uv tree
+    explanation: |
+      Prints the project's resolved dependency graph. Indispensable for
+      figuring out *why* an unwanted package is installed.
+    flags:
+      - --depth <n>          truncate depth
+      - --package <pkg>      subtree rooted at pkg
+      - --invert             show reverse deps (who depends on X)
+      - --no-dev
+    examples:
+      - description: Whole tree
+        command: uv tree
+      - description: Why is numpy installed?
+        command: uv tree --invert --package numpy
+      - description: Just the top-level deps
+        command: uv tree --depth 1
+    gotchas: []
+    tags: [uv, tree, deps]
