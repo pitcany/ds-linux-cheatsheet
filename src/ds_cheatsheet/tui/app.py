@@ -28,12 +28,15 @@ from ..models import CommandEntry
 from ..runner import run as run_command
 from ..search import search as search_entries
 from ..search import suggest as suggest_entries
+from ..state import AppState, load_state, record_recent, save_state, toggle_favorite
 from ..substitute import find_placeholders
 from .help_screen import HelpScreen
 from .run_result_screen import RunResultScreen
 from .substitute_screen import SubstituteScreen
 
 _ALL_CATEGORIES = "All"
+_FAVORITES = "Favorites"
+_RECENT = "Recent"
 
 
 def editor_command(editor: str, path: Path, line: int) -> list[str]:
@@ -74,12 +77,18 @@ class CategoryItem(ListItem):
 class CommandItem(ListItem):
     """List entry that stores a CommandEntry id."""
 
-    def __init__(self, entry: CommandEntry, *, is_recent: bool = False) -> None:
+    def __init__(
+        self,
+        entry: CommandEntry,
+        *,
+        is_favorite: bool = False,
+        is_recent: bool = False,
+    ) -> None:
         title = entry.title
-        if entry.dangerous or is_recent:
+        if entry.dangerous or is_favorite or is_recent:
             parts: list[str | tuple[str, str]] = []
-            if is_recent:
-                parts.append(("★ ", "bold green"))
+            if is_favorite or is_recent:
+                parts.append(("★ ", "bold yellow" if is_favorite else "bold green"))
             if entry.dangerous:
                 parts.append(("!! ", "bold red"))
             parts.append(title)
@@ -208,6 +217,9 @@ class CheatSheetApp(App[None]):
         Binding("c", "copy_command", "Copy"),
         Binding("C", "cycle_copy_target", "Cycle"),
         Binding("s", "substitute_command", "Substitute"),
+        Binding("f", "toggle_favorite", "Favorite"),
+        Binding("F", "show_favorites", "Favorites"),
+        Binding("y", "print_last_copy", "Print last", show=False),
         Binding("D", "focus_detail", "Detail"),
         Binding("pagedown", "detail_page_down", "Page down", show=False),
         Binding("pageup", "detail_page_up", "Page up", show=False),
@@ -249,6 +261,8 @@ class CheatSheetApp(App[None]):
         self.status_message: str = ""
         self.category_counts: dict[str, int] = {}
         self.recent_ids: set[str] = set()
+        self.state: AppState = AppState()
+        self.last_copied_text: str | None = None
         self.detail_search_query: str = ""
         self.detail_search_match_count: int = 0
         self.detail_search_match_index: int = 0
@@ -281,6 +295,7 @@ class CheatSheetApp(App[None]):
 
         self.entries_by_id = {e.id: e for e in self.entries}
         self.category_counts = count_by_category(self.entries)
+        self.state = load_state()
         self._refresh_categories()
         self._refresh_commands()
 
@@ -303,21 +318,51 @@ class CheatSheetApp(App[None]):
         return entry.command, "template"
 
     def _refresh_categories(self) -> None:
+        current_category = self.current_category
         view = self.query_one("#categories", ListView)
         view.clear()
-        view.append(CategoryItem(_ALL_CATEGORIES, f"{_ALL_CATEGORIES} ({len(self.entries)})"))
+        items = [
+            (_FAVORITES, f"{_FAVORITES} ({len(self.state.favorites)})"),
+            (_RECENT, f"{_RECENT} ({len(self.state.recent)})"),
+            (_ALL_CATEGORIES, f"{_ALL_CATEGORIES} ({len(self.entries)})"),
+        ]
         cats = sorted({e.category for e in self.entries})
         for cat in cats:
-            view.append(CategoryItem(cat, f"{cat} ({self.category_counts.get(cat, 0)})"))
-        view.index = 0
+            items.append((cat, f"{cat} ({self.category_counts.get(cat, 0)})"))
+        for name, label in items:
+            view.append(CategoryItem(name, label))
+        names = [name for name, _label in items]
+        self.current_category = current_category if current_category in names else _ALL_CATEGORIES
+        view.index = names.index(self.current_category)
 
     def _refresh_commands(self) -> None:
         view = self.query_one("#commands", ListView)
         view.clear()
         category = None if self.current_category == _ALL_CATEGORIES else self.current_category
-        results = search_entries(self.entries, self.query, category=category)
+        if self.current_category == _FAVORITES:
+            pool = [
+                self.entries_by_id[item]
+                for item in self.state.favorites
+                if item in self.entries_by_id
+            ]
+            results = search_entries(pool, self.query)
+        elif self.current_category == _RECENT:
+            pool = [
+                self.entries_by_id[item["id"]]
+                for item in self.state.recent
+                if item.get("id") in self.entries_by_id
+            ]
+            results = search_entries(pool, self.query)
+        else:
+            results = search_entries(self.entries, self.query, category=category)
         for entry in results:
-            view.append(CommandItem(entry, is_recent=entry.id in self.recent_ids))
+            view.append(
+                CommandItem(
+                    entry,
+                    is_favorite=entry.id in self.state.favorites,
+                    is_recent=entry.id in self.recent_ids,
+                )
+            )
         if results:
             view.index = 0
             self.selected_id = results[0].id
@@ -434,7 +479,15 @@ class CheatSheetApp(App[None]):
             return
         command, label = self._resolve_copy_target(entry)
         ok, msg = copy_to_clipboard(command)
-        self._set_status(f"Copied {label}" if ok else f"Copy failed: {msg}")
+        self.last_copied_text = command
+        self.state = record_recent(self.state, entry.id)
+        save_state(self.state)
+        if ok:
+            self._set_status(f"Copied {label}")
+        elif msg.startswith("No clipboard"):
+            self._set_status(msg)
+        else:
+            self._set_status(f"Copy failed: {msg}")
 
     def action_copy_example(self, number: int) -> None:
         entry = self._current_entry()
@@ -483,7 +536,42 @@ class CheatSheetApp(App[None]):
             self._set_status("Substitution cancelled.")
             return
         ok, msg = copy_to_clipboard(command)
-        self._set_status("Copied substituted command" if ok else f"Copy failed: {msg}")
+        self.last_copied_text = command
+        if self.selected_id:
+            self.state = record_recent(self.state, self.selected_id)
+            save_state(self.state)
+        if ok:
+            self._set_status("Copied substituted command")
+        elif msg.startswith("No clipboard"):
+            self._set_status(msg)
+        else:
+            self._set_status(f"Copy failed: {msg}")
+
+    def action_toggle_favorite(self) -> None:
+        entry = self._current_entry()
+        if entry is None:
+            self._set_status("Nothing to favorite.")
+            return
+        self.state = toggle_favorite(self.state, entry.id)
+        save_state(self.state)
+        self._refresh_categories()
+        self._refresh_commands()
+        if entry.id in self.state.favorites:
+            self._set_status(f"Favorited {entry.title}")
+        else:
+            self._set_status(f"Unfavorited {entry.title}")
+
+    def action_show_favorites(self) -> None:
+        self.current_category = _FAVORITES
+        self._refresh_categories()
+        self._refresh_commands()
+
+    def action_print_last_copy(self) -> None:
+        if not self.last_copied_text:
+            self._set_status("Nothing copied yet.")
+            return
+        with self.suspend():
+            print(self.last_copied_text)
 
     def action_edit_yaml(self) -> None:
         entry = self._current_entry()
@@ -514,6 +602,7 @@ class CheatSheetApp(App[None]):
             self.entries = load_all()
             self.entries_by_id = {e.id: e for e in self.entries}
             self.category_counts = count_by_category(self.entries)
+            self.state = load_state()
             self._refresh_categories()
             self._refresh_commands()
             self._set_status(f"Reloaded {len(self.entries)} commands.")

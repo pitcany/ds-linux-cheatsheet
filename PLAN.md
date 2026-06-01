@@ -376,7 +376,7 @@ with `EDITOR=cat` (smoke).
 
 ## Phase 5 — Workflow extras
 
-### 10. Favorites + recently-copied
+### ✅ 10. Favorites + recently-copied
 
 **Files.** New `src/ds_cheatsheet/state.py`, `src/ds_cheatsheet/tui/app.py`
 
@@ -402,7 +402,7 @@ falls back to empty defaults without crashing.
 
 ---
 
-### 5. Clipboard fallback for headless systems
+### ✅ 5. Clipboard fallback for headless systems
 
 **Files.** `src/ds_cheatsheet/clipboard.py`, `src/ds_cheatsheet/tui/app.py`
 

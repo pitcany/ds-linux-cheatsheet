@@ -29,6 +29,8 @@ HELP_TEXT = """[b]ds-linux-cheatsheet[/b]
   1-9          copy example N directly
   C            cycle copy target: template → examples
   s            fill placeholders before copying
+  f / F        toggle favorite / show favorites
+  y            print the last copied command
   e            edit the underlying YAML file in $EDITOR
   x            run the selected command (with safety prompt)
   E            explain a command you type

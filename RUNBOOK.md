@@ -28,8 +28,9 @@ sudo apt install -y xclip          # X11
 sudo apt install -y wl-clipboard   # Wayland
 ```
 
-If no clipboard tool is available the `c` action still works — it just
-returns a "Clipboard unavailable" status; nothing crashes.
+If no clipboard tool is available the `c` action writes the command to
+`$XDG_RUNTIME_DIR/ds-cheatsheet-last.txt` or `/tmp/ds-cheatsheet-last.txt`.
+Press `y` to print the last copied command to stdout.
 
 ---
 
@@ -142,6 +143,8 @@ binary install shared.
 | `1`-`9` | Copy example N directly                  |
 | `C`  | Cycle copy target: template → examples       |
 | `s`  | Fill placeholders before copying             |
+| `f` / `F` | Toggle favorite / show favorites        |
+| `y`  | Print the last copied command                |
 | `e`  | Edit the underlying YAML file in `$EDITOR`   |
 | `x`  | Run the selected command (gated, see §6)     |
 | `E`  | Explain a command you type                   |
@@ -317,10 +320,11 @@ Render to PNG: `rsvg-convert -w 1400 /tmp/dscheat.svg -o /tmp/dscheat.png`.
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `command not found: ds-cheatsheet`                        | The env isn't activated. `conda activate ds-cheatsheet` or `source .venv/bin/activate`.                       |
 | `CheatSheetLoadError: Invalid YAML in …`                  | A list item starts with a backtick or a value contains `": "`. See §5b.                                       |
-| `pyperclip` exception when pressing `c`                   | Install `xclip` (X11) or `wl-clipboard` (Wayland), or accept "Clipboard unavailable" status.                  |
+| No clipboard tool when pressing `c`                       | Command is written to `$XDG_RUNTIME_DIR/ds-cheatsheet-last.txt` or `/tmp/ds-cheatsheet-last.txt`; press `y` to print it. |
+| Favorites disappear or state file is corrupt              | Delete `$XDG_STATE_HOME/ds-cheatsheet/state.json` or `~/.local/state/ds-cheatsheet/state.json`; the app recreates it lazily. |
 | TUI launches but layout is squished                       | Terminal too narrow. Aim for ≥ 100 columns.                                                                   |
 | `e` opens nothing                                         | `$EDITOR` is unset → defaults to `vi`. Export `EDITOR=nvim` (or similar) in your shell rc.                    |
-| Theme toggle does nothing                                 | Make sure the `categories` or `commands` list is focused, not the search input (the input swallows `t`).      |
+| Theme toggle does nothing                                 | Clear the search box first; typing still wins once a search query has content.                                |
 | `ModuleNotFoundError: No module named 'ds_cheatsheet'`    | Did `pip install -e ".[dev]"` from inside the activated env? Re-run.                                          |
 | Pre-existing `.venv` refuses to recreate (`Permission denied: activate.csh`) | `chmod -R u+w .venv && rm -rf .venv` then recreate.                                            |
 | Test failure: `Input should be a valid string`            | A flag string accidentally became a dict because of an unquoted colon. Quote it (§5b).                        |

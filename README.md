@@ -67,6 +67,8 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 | `1`-`9` | Copy example N directly             |
 | `C`  | Cycle copy target: template → examples |
 | `s`  | Fill placeholders before copying        |
+| `f`/`F` | Toggle favorite / show favorites     |
+| `y`  | Print the last copied command           |
 | `e`  | Edit the underlying YAML in `$EDITOR`   |
 | `x`  | Run the selected command (gated)        |
 | `E`  | Explain a command you type              |
@@ -78,7 +80,8 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 
 The runner is intentionally cautious:
 
-1. Default mode is **copy only** — `c` puts the command on your clipboard.
+1. Default mode is **copy only** — `c` puts the command on your clipboard,
+   or writes it to a fallback file on headless systems.
 2. Pressing `x` only runs *non-dangerous* commands and opens output in a modal.
 3. Anything containing patterns like `rm -rf`, `chmod -R`, `chown -R`, `dd`,
    `mkfs`, `sudo`, `git push --force`, `git reset --hard`, fork bombs,

@@ -200,7 +200,7 @@ async def test_category_list_shows_entry_counts() -> None:
         category_items = app.query_one("#categories", ListView).children
         labels = [str(item.query_one(Label).content) for item in category_items]
 
-        assert "All (101)" in labels
+        assert f"All ({len(app.entries)})" in labels
         assert "gpu (5)" in labels
 
 
@@ -304,3 +304,25 @@ async def test_run_command_opens_result_modal_without_replacing_detail(
         assert isinstance(app.screen, RunResultScreen)
         assert app.screen.result.stdout == "hi\n"
         assert app.query_one("#detail-body").content is detail_before
+
+
+@pytest.mark.asyncio
+async def test_favorite_toggle_persists_between_app_sessions(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#commands", ListView).focus()
+        app.selected_id = "tmux-new-session"
+        await pilot.press("f")
+        await pilot.pause()
+
+    restarted = CheatSheetApp()
+    async with restarted.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        assert "tmux-new-session" in restarted.state.favorites
