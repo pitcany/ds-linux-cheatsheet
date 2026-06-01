@@ -109,10 +109,14 @@ class CheatSheetApp(App[None]):
         Binding("e", "edit_yaml", "Edit YAML"),
         Binding("x", "run_command", "Run"),
         Binding("E", "explain_prompt", "Explain"),
+        Binding("t", "toggle_theme", "Theme"),
         Binding("j", "move_down", show=False),
         Binding("k", "move_up", show=False),
         Binding("tab", "cycle_focus", show=False),
     ]
+
+    DARK_THEME = "textual-dark"
+    LIGHT_THEME = "textual-light"
 
     query: reactive[str] = reactive("")
     current_category: reactive[str] = reactive(_ALL_CATEGORIES)
@@ -221,6 +225,10 @@ class CheatSheetApp(App[None]):
 
     def action_show_help(self) -> None:
         self.push_screen(HelpScreen())
+
+    def action_toggle_theme(self) -> None:
+        self.theme = self.LIGHT_THEME if self.theme == self.DARK_THEME else self.DARK_THEME
+        self._set_status(f"Theme: {self.theme}")
 
     def action_copy_command(self) -> None:
         entry = self.entries_by_id.get(self.selected_id) if self.selected_id else None

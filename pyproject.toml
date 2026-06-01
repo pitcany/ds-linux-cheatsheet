@@ -67,3 +67,4 @@ ignore = ["E501"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra -q"
+asyncio_mode = "auto"

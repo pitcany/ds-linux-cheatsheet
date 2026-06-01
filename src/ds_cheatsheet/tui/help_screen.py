@@ -22,6 +22,7 @@ HELP_TEXT = """[b]ds-linux-cheatsheet[/b]
   e            edit the underlying YAML file in $EDITOR
   x            run the selected command (with safety prompt)
   E            explain a command you type
+  t            toggle dark / light theme
   ?            this help screen
   q            quit
 

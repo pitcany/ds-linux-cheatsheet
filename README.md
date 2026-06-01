@@ -46,6 +46,7 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 | `e`  | Edit the underlying YAML in `$EDITOR`   |
 | `x`  | Run the selected command (gated)        |
 | `E`  | Explain a command you type              |
+| `t`  | Toggle dark / light theme               |
 | `?`  | Help                                    |
 | `q`  | Quit                                    |
 
