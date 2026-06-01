@@ -19,6 +19,8 @@ HELP_TEXT = """[b]ds-linux-cheatsheet[/b]
   tab          cycle between panels
   enter        open the selected command
   D            focus the detail panel
+  /            search inside detail when detail is focused
+  n / N        next / previous detail search match
   PgUp/PgDn    scroll the focused detail panel
   Home/End     jump to top / bottom of detail
 

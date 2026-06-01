@@ -238,3 +238,43 @@ async def test_detail_panel_focus_and_scroll_keys_do_not_error() -> None:
         await pilot.pause()
 
         assert app.focused is app.query_one("#detail")
+
+
+@pytest.mark.asyncio
+async def test_detail_search_opens_inline_input_and_tracks_matches() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.selected_id = "nvidia-smi"
+        app._refresh_detail()
+
+        await pilot.press("D")
+        await pilot.press("slash")
+        for ch in "GPU":
+            await pilot.press(ch)
+        await pilot.pause()
+
+        detail_input = app.query_one("#detail-search-input", Input)
+        assert app.focused is detail_input
+        assert not detail_input.has_class("hidden")
+        assert app.detail_search_query == "GPU"
+        assert app.detail_search_match_count > 0
+
+
+@pytest.mark.asyncio
+async def test_explain_screen_lists_related_entries() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        await pilot.press("E")
+        await pilot.pause()
+        for ch in "rg foo":
+            await pilot.press(ch if ch != " " else "space")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        suggestions = app.screen.query_one("#explain-suggestions", ListView)
+        suggestion_ids = [item.entry_id for item in suggestions.children]
+
+        assert any(entry_id.startswith(("ripgrep", "grep")) for entry_id in suggestion_ids)

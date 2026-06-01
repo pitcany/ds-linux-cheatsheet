@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from difflib import get_close_matches
 
 from .models import CommandEntry
 
@@ -50,6 +51,32 @@ def _expand(query: str) -> list[str]:
     return deduped
 
 
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9_.-]+", text.lower())
+
+
+def _has_prefix_match(token: str, text: str) -> bool:
+    if len(token) < 4 or token in text:
+        return False
+    return re.search(rf"\b{re.escape(token[:3])}\w*", text) is not None
+
+
+def _has_fuzzy_match(token: str, text: str) -> bool:
+    if len(token) < 5 or token in text:
+        return False
+    return bool(get_close_matches(token, _words(text), n=1, cutoff=0.82))
+
+
+def _field_score(token: str, text: str, substring_weight: int, prefix_weight: int) -> int:
+    if token in text:
+        return substring_weight
+    if _has_prefix_match(token, text):
+        return prefix_weight
+    if _has_fuzzy_match(token, text):
+        return 1
+    return 0
+
+
 def score(entry: CommandEntry, tokens: Iterable[str]) -> int:
     """Return a coarse relevance score for ranking."""
     haystack = entry.search_text
@@ -61,16 +88,15 @@ def score(entry: CommandEntry, tokens: Iterable[str]) -> int:
     for token in tokens:
         if not token:
             continue
-        # Title hits dominate.
-        if token in title_lc:
-            total += 10
-        if token in cmd_lc:
-            total += 6
-        if token in tags_lc:
-            total += 4
+        # Title hits dominate. Substring matches outrank prefix/fuzzy matches.
+        total += _field_score(token, title_lc, substring_weight=10, prefix_weight=5)
+        total += _field_score(token, cmd_lc, substring_weight=6, prefix_weight=3)
+        total += _field_score(token, tags_lc, substring_weight=4, prefix_weight=2)
         # General haystack match.
-        count = haystack.count(token)
-        total += count
+        if token in haystack:
+            total += haystack.count(token)
+        elif _has_prefix_match(token, haystack) or _has_fuzzy_match(token, haystack):
+            total += 1
     return total
 
 
@@ -91,3 +117,22 @@ def search(
     matches = [(s, e) for s, e in scored if s > 0]
     matches.sort(key=lambda pair: (-pair[0], pair[1].title.lower()))
     return [e for _, e in matches]
+
+
+def suggest(entries: list[CommandEntry], query: str, *, limit: int = 5) -> list[str]:
+    """Return up to ``limit`` candidate entry ids for an unmatched query."""
+    tokens = _tokenize(query)
+    if not tokens:
+        return []
+
+    candidates: list[tuple[int, str]] = []
+    for entry in entries:
+        haystack_words = set(_words(entry.search_text))
+        close_count = sum(
+            1 for token in tokens if get_close_matches(token, list(haystack_words), n=1, cutoff=0.7)
+        )
+        if close_count:
+            candidates.append((close_count, entry.id))
+
+    candidates.sort(key=lambda pair: (-pair[0], pair[1]))
+    return [entry_id for _score, entry_id in candidates[:limit]]

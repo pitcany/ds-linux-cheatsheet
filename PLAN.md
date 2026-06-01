@@ -267,7 +267,7 @@ runs without error on a long entry.
 
 ## Phase 3 — Search quality
 
-### 9. Typo-tolerant / prefix-aware search
+### ✅ 9. Typo-tolerant / prefix-aware search
 
 **Files.** `src/ds_cheatsheet/search.py`, `tests/test_search.py`
 
@@ -288,7 +288,7 @@ runs without error on a long entry.
 
 ---
 
-### 13. `/` inside detail panel for in-entry search
+### ✅ 13. `/` inside detail panel for in-entry search
 
 **Files.** `src/ds_cheatsheet/tui/app.py`, `src/ds_cheatsheet/tui/styles.tcss`
 
@@ -309,7 +309,7 @@ widget).
 
 ---
 
-### 14. Explain → cross-link to cheat sheet entries
+### ✅ 14. Explain → cross-link to cheat sheet entries
 
 **Files.** `src/ds_cheatsheet/tui/app.py` (the `_ExplainScreen` class),
 `src/ds_cheatsheet/search.py`

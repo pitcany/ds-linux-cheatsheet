@@ -59,6 +59,8 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 | `tab`| Cycle search → categories → commands    |
 | `enter` | Select the highlighted item          |
 | `D`  | Focus the detail panel                  |
+| `/` with detail focused | Search within the selected entry |
+| `n`/`N` | Next / previous detail search match |
 | `PgUp`/`PgDn` | Scroll the focused detail panel |
 | `Home`/`End` | Jump to top / bottom of detail |
 | `c`  | Copy the selected template/example to clipboard |

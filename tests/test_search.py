@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ds_cheatsheet.loader import load_all
-from ds_cheatsheet.search import search
+from ds_cheatsheet.search import search, suggest
 
 REPO = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO / "data" / "commands"
@@ -76,3 +76,27 @@ def test_unknown_query_returns_empty() -> None:
     entries = _entries()
     results = search(entries, "asdfqwerasdf-no-such-token")
     assert results == []
+
+
+def test_typo_tolerant_search_finds_gpu_monitoring_entries() -> None:
+    entries = _entries()
+    results = search(entries, "monitr gpu")
+    ids = {entry.id for entry in results}
+
+    assert {"nvidia-smi", "nvtop"}.issubset(ids)
+
+
+def test_prefix_aware_search_finds_tunnel_for_tunneling() -> None:
+    entries = _entries()
+    results = search(entries, "tunneling")
+
+    assert results
+    assert results[0].id == "ssh-tunnel-local"
+
+
+def test_suggest_returns_at_most_five_candidate_ids_for_unmatched_query() -> None:
+    entries = _entries()
+    suggestions = suggest(entries, "xyzzy")
+
+    assert len(suggestions) <= 5
+    assert all(isinstance(entry_id, str) for entry_id in suggestions)

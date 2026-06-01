@@ -56,3 +56,7 @@ ListView > ListItem.--highlight {
 #detail-body {
     height: 1fr;
 }
+
+.hidden {
+    display: none;
+}
