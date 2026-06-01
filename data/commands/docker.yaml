@@ -1,0 +1,113 @@
+category: docker
+commands:
+  - id: docker-run-gpu
+    title: Run a container with GPU access
+    category: docker
+    command: docker run --gpus all -it --rm <image>
+    explanation: |
+      Mounts host NVIDIA GPUs into the container via the NVIDIA Container
+      Toolkit. `--rm` removes the container on exit. Required on every CUDA
+      image you want to actually use the GPU.
+    flags:
+      - --gpus all  expose all GPUs
+      - --gpus '"device=0,1"'  expose specific GPUs
+      - -it  interactive TTY
+      - --rm  remove on exit
+    examples:
+      - description: Open a shell with all GPUs
+        command: docker run --gpus all -it --rm nvcr.io/nvidia/pytorch:24.07-py3 bash
+      - description: Restrict to GPU 0
+        command: docker run --gpus '"device=0"' --rm -v $PWD:/work pytorch/pytorch
+    gotchas:
+      - Requires the NVIDIA Container Toolkit and a working host driver.
+    tags: [docker, gpu, ml]
+
+  - id: docker-mount-workdir
+    title: Mount your current directory into the container
+    category: docker
+    command: docker run -it --rm -v "$PWD:/work" -w /work <image>
+    explanation: |
+      `-v` bind-mounts your code, `-w` sets the working directory. The fastest
+      way to iterate on a script without rebuilding the image.
+    flags:
+      - -v <src>:<dst>
+      - -w <dst>
+    examples:
+      - description: Iterate on code inside an ML image
+        command: docker run -it --rm -v "$PWD:/work" -w /work python:3.12 python train.py
+    gotchas:
+      - File permissions inside the container are root by default — use `--user $(id -u):$(id -g)` to match host UID.
+    tags: [docker, dev]
+
+  - id: docker-ps-all
+    title: List all containers (running and stopped)
+    category: docker
+    command: docker ps -a
+    explanation: Shows every container, not only the running ones.
+    flags:
+      - -a   include stopped
+      - -q   quiet (IDs only)
+      - --filter status=exited
+    examples:
+      - description: Get IDs of exited containers
+        command: docker ps -aq --filter status=exited
+    gotchas: []
+    tags: [docker, list]
+
+  - id: docker-logs-follow
+    title: Tail logs of a running container
+    category: docker
+    command: docker logs -f --tail 100 <container>
+    explanation: |
+      Streams logs as they come, starting from the last 100 lines. Critical
+      for watching training runs that are wedged behind a container boundary.
+    flags:
+      - -f          follow
+      - --tail N    start from last N lines
+      - --since 1h  filter by time
+    examples:
+      - description: Watch a training container
+        command: docker logs -f --tail 200 train
+    gotchas:
+      - Docker logs grow forever by default — configure a `json-file` rotation in `/etc/docker/daemon.json`.
+    tags: [docker, logs]
+
+  - id: docker-compose-up
+    title: Start a docker-compose stack
+    category: docker
+    command: docker compose up -d
+    explanation: |
+      Brings up all services in `docker-compose.yml` in detached mode. The new
+      `docker compose` (no hyphen) is the modern plugin.
+    flags:
+      - -d  detached
+      - --build  rebuild images first
+    examples:
+      - description: Detached
+        command: docker compose up -d
+      - description: Rebuild before starting
+        command: docker compose up -d --build
+    gotchas:
+      - "`docker-compose` (hyphen) is the legacy Python tool; `docker compose` is the Go plugin."
+    tags: [docker, compose]
+
+  - id: docker-prune-images
+    title: Remove dangling images and stopped containers
+    category: docker
+    command: docker system prune
+    explanation: |
+      Frees disk by removing stopped containers, dangling images, unused
+      networks. Add `-a` to also remove all unused images.
+    flags:
+      - -a  also unused images
+      - -f  no confirmation
+      - --volumes  also unused volumes (data loss risk)
+    examples:
+      - description: Standard prune with confirmation
+        command: docker system prune
+      - description: Free as much as possible
+        command: docker system prune -a --volumes
+    gotchas:
+      - "`--volumes` discards container data volumes — make sure nothing valuable lives there."
+    dangerous: true
+    tags: [docker, cleanup]

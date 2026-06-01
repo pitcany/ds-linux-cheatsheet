@@ -1,0 +1,72 @@
+category: jq
+commands:
+  - id: jq-pretty
+    title: Pretty-print JSON
+    category: jq
+    command: jq '.' <file>
+    explanation: |
+      Reads JSON from a file or stdin and pretty-prints with syntax coloring.
+      Useful for inspecting API responses.
+    flags:
+      - -r  raw output (no quotes)
+      - -c  compact
+      - -s  slurp into array
+    examples:
+      - description: Pretty
+        command: curl -s api.example.com/items | jq
+      - description: Raw string output
+        command: jq -r '.tokens[].name' resp.json
+    gotchas:
+      - On newline-delimited JSON, use `-s` or stream with `--stream`.
+    tags: [jq, json]
+
+  - id: jq-select-fields
+    title: Project specific fields
+    category: jq
+    command: "jq '{a: .a, b: .nested.b}' <file>"
+    explanation: |
+      Construct a new object by selecting and renaming fields. The CSV trick
+      below converts JSON arrays of objects to TSV in one step.
+    flags: []
+    examples:
+      - description: Slim down a payload
+        command: jq '{id, name, model}' runs.json
+      - description: JSON-array → TSV
+        command: jq -r '.[] | [.id, .name, .acc] | @tsv' runs.json
+    gotchas:
+      - Missing keys produce `null` — guard with `// "default"`.
+    tags: [jq, transform]
+
+  - id: jq-filter-array
+    title: Filter an array of objects
+    category: jq
+    command: jq '.[] | select(.<key> == "<val>")' <file>
+    explanation: SQL-style WHERE clause for JSON arrays.
+    flags: []
+    examples:
+      - description: Failed jobs only
+        command: jq '.[] | select(.status == "failed")' runs.json
+      - description: Latest 5 by timestamp
+        command: jq 'sort_by(.created_at) | reverse | .[:5]' runs.json
+    gotchas:
+      - "`select` returns the input untouched if true, nothing if false."
+    tags: [jq, filter]
+
+  - id: jq-stream-ndjson
+    title: Process newline-delimited JSON line by line
+    category: jq
+    command: jq -c '<filter>' <file.ndjson>
+    explanation: |
+      NDJSON / JSONL is common for logs and ML datasets. jq processes one
+      object per line by default — pair with `-c` for compact line output.
+    flags:
+      - -c   compact, one per line
+      - -s   slurp into array
+    examples:
+      - description: Pick a field from each line
+        command: "jq -c '{id, score: .metrics.acc}' runs.ndjson"
+      - description: Sum a field across the stream
+        command: jq -s 'map(.tokens) | add' runs.ndjson
+    gotchas:
+      - "`-s` loads the entire file into memory — bad for huge logs."
+    tags: [jq, ndjson]

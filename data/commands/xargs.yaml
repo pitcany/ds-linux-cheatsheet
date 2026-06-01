@@ -1,0 +1,71 @@
+category: xargs
+commands:
+  - id: xargs-basic
+    title: Build commands from stdin
+    category: xargs
+    command: <producer> | xargs <command>
+    explanation: |
+      Reads lines from stdin and turns them into arguments for another command.
+      The classic glue between `find` and anything else.
+    flags:
+      - -n N   run command per N args
+      - -I {}  placeholder substitution
+      - -P N   parallelism
+      - -0     NUL-terminated input (pair with `find -print0`)
+    examples:
+      - description: Remove files listed in a file
+        command: xargs rm < to_delete.txt
+      - description: Curl each URL in a list
+        command: cat urls.txt | xargs -n1 curl -sS -o - > combined.html
+    gotchas:
+      - Default behaviour appends args at the end; use `-I {}` if the position matters.
+    tags: [xargs, glue]
+
+  - id: xargs-parallel
+    title: Run a command in parallel across inputs
+    category: xargs
+    command: <producer> | xargs -n1 -P<N> <command>
+    explanation: |
+      `-P` runs up to N processes concurrently. A poor person's GNU parallel.
+    flags:
+      - -P N  parallel processes
+      - -n 1  one item per process
+    examples:
+      - description: Resize every image in parallel
+        command: ls *.png | xargs -n1 -P8 -I{} convert {} -resize 512x512 thumbs/{}
+      - description: Run inference on many shards
+        command: ls shards/*.jsonl | xargs -n1 -P4 -I{} python infer.py --input {}
+    gotchas:
+      - Output of parallel jobs can interleave — pipe each job to its own log file.
+    tags: [xargs, parallel]
+
+  - id: xargs-nul-safe
+    title: NUL-safe file handling
+    category: xargs
+    command: find <dir> -type f -print0 | xargs -0 <command>
+    explanation: |
+      Filenames with spaces or newlines break naive pipelines. Using `-print0`
+      / `-0` keeps everything intact.
+    flags: []
+    examples:
+      - description: chmod many files safely
+        command: find . -type f -name '*.sh' -print0 | xargs -0 chmod +x
+    gotchas:
+      - "`xargs -0` is GNU; on BSD/macOS use `xargs -0` from coreutils too (gxargs)."
+    tags: [xargs, find, safety]
+
+  - id: xargs-no-run-if-empty
+    title: Avoid running with empty input
+    category: xargs
+    command: <producer> | xargs -r <command>
+    explanation: |
+      Without `-r`, xargs runs the command once even on empty stdin, which
+      can be destructive. `--no-run-if-empty` is the long form.
+    flags:
+      - -r  / --no-run-if-empty
+    examples:
+      - description: Safe rm pipeline
+        command: rg -l 'TODO' build/ | xargs -r rm
+    gotchas:
+      - On BSD xargs this flag is not always available.
+    tags: [xargs, safety]

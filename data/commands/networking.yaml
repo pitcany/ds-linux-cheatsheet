@@ -1,0 +1,149 @@
+category: networking
+commands:
+  - id: curl-get
+    title: HTTP GET with curl
+    category: networking
+    command: curl -sS <url>
+    explanation: |
+      `-s` silences progress, `-S` keeps errors visible. Combine with `-o` to
+      save to a file or pipe to `jq` for JSON.
+    flags:
+      - -s   silent
+      - -S   show errors when silent
+      - -o   output file
+      - -L   follow redirects
+      - -H   add header
+      - -X   HTTP method
+    examples:
+      - description: JSON API call
+        command: curl -sS https://api.example.com/items | jq
+      - description: Download a model with redirects
+        command: curl -LsS -o model.bin https://example.com/weights
+      - description: POST a JSON body
+        command: |
+          curl -sS -H 'Content-Type: application/json' -d '{"q":"x"}' http://localhost:8000/search
+    gotchas:
+      - Default fail-on-error behaviour requires `--fail` (or `-f`) to exit non-zero on 4xx/5xx.
+    tags: [curl, http]
+
+  - id: wget-mirror
+    title: Recursively mirror a site
+    category: networking
+    command: wget -m -np -k <url>
+    explanation: |
+      `-m` is mirror mode (`-r -N -l inf --no-remove-listing`), `-np` prevents
+      ascending into parents, `-k` rewrites links to be local.
+    flags:
+      - -m   mirror
+      - -np  no parent
+      - -k   convert links
+      - -P <dir>  prefix
+    examples:
+      - description: Mirror docs for offline reading
+        command: wget -m -np -k https://docs.example.com
+    gotchas:
+      - Some servers throttle or block mirrors — be polite.
+    tags: [wget, mirror]
+
+  - id: ss-listening
+    title: Show listening sockets
+    category: networking
+    command: ss -tulpn
+    explanation: |
+      `-t` TCP, `-u` UDP, `-l` listening, `-p` processes, `-n` numeric. The
+      modern replacement for `netstat`.
+    flags:
+      - -t / -u  TCP / UDP
+      - -l       listening
+      - -p       processes
+      - -n       numeric
+    examples:
+      - description: Who is listening?
+        command: ss -tulpn
+      - description: Just port 5432
+        command: ss -tulpn 'sport = :5432'
+    gotchas:
+      - Process column needs root for sockets owned by other users.
+    tags: [ss, netstat]
+
+  - id: dig-record
+    title: Look up a DNS record
+    category: networking
+    command: dig <type> <name>
+    explanation: |
+      Query a DNS record. Use `+short` for just the value, `+trace` to walk
+      the resolution path.
+    flags:
+      - +short
+      - +trace
+      - "@8.8.8.8  pin server"
+    examples:
+      - description: A record, short form
+        command: dig +short A example.com
+      - description: Trace resolution
+        command: dig +trace example.com
+    gotchas:
+      - "`nslookup` works too but `dig` output is parser-friendlier."
+    tags: [dig, dns]
+
+  - id: tcpdump-port
+    title: Capture packets on a port
+    category: networking
+    command: sudo tcpdump -i <iface> -nn 'port <port>'
+    explanation: |
+      Captures live packets matching a BPF filter. `-nn` keeps numeric IPs
+      and ports for speed.
+    flags:
+      - -i      interface
+      - -nn     no name resolution
+      - -w file write a pcap
+      - -c N    stop after N packets
+    examples:
+      - description: 10 packets on port 8000
+        command: sudo tcpdump -i any -nn -c 10 'port 8000'
+      - description: Save to disk for Wireshark
+        command: sudo tcpdump -i eth0 -w capture.pcap 'host 10.0.0.42'
+    gotchas:
+      - Capturing on busy NICs fills disk fast — bound with `-c` or `-G`.
+    dangerous: true
+    tags: [tcpdump, capture]
+
+  - id: ip-addr
+    title: Show network interfaces and addresses
+    category: networking
+    command: ip -br addr
+    explanation: |
+      `-br` (brief) gives a one-line-per-interface summary. Faster to read
+      than `ifconfig` or full `ip addr`.
+    flags:
+      - -br    brief
+      - -c     color
+    examples:
+      - description: All addresses, briefly
+        command: ip -br -c addr
+      - description: Only links that are UP
+        command: ip -br link | awk '$2=="UP"'
+    gotchas:
+      - On older distros `ifconfig` may not even be installed.
+    tags: [ip, network]
+
+  - id: ssh-port-test
+    title: Test if a TCP port is open
+    category: networking
+    command: nc -zv <host> <port>
+    explanation: |
+      `nc -z` does a zero-I/O connect, perfect for a quick reachability test.
+      `-v` prints whether the port accepted the connection.
+    flags:
+      - -z   zero-I/O
+      - -v   verbose
+      - -w N timeout seconds
+    examples:
+      - description: Is Postgres reachable?
+        command: nc -zv -w 3 db.internal 5432
+      - description: Loop over a port range
+        command: |
+          for p in 22 80 443; do nc -zv -w 1 example.com $p; done
+    gotchas:
+      - BusyBox `nc` may not support `-z`; use `bash`'s `/dev/tcp` as a fallback.
+    tags: [nc, network, debug]

@@ -1,0 +1,90 @@
+category: awk
+commands:
+  - id: awk-pick-column
+    title: Print a single column from a delimited file
+    category: awk
+    command: awk -F'<delim>' '{print $<n>}' <file>
+    explanation: |
+      Awk's bread and butter. `-F` sets the field separator. `$0` is the whole
+      line; `$1`, `$2`… are fields. Use `NR` for the line number and `NF` for
+      the number of fields.
+    flags:
+      - -F<delim>  field separator
+      - -v var=val  pass variables in
+    examples:
+      - description: Second column of a CSV
+        command: awk -F',' '{print $2}' data.csv
+      - description: Tab-separated, skip header
+        command: awk -F'\t' 'NR>1 {print $3}' data.tsv
+      - description: Pass a variable in
+        command: awk -F',' -v col=3 '{print $col}' data.csv
+    gotchas:
+      - awk's CSV handling is naive — it doesn't understand quoted commas. For
+        real CSVs, prefer `csvcut` or `xsv`.
+    tags: [awk, columns, csv]
+
+  - id: awk-sum-column
+    title: Sum a numeric column
+    category: awk
+    command: awk -F'<delim>' '{s+=$<n>} END {print s}' <file>
+    explanation: |
+      A classic awk one-liner for quick totals without spinning up Python.
+    flags: []
+    examples:
+      - description: Sum bytes from `du -b`
+        command: du -b * | awk '{s+=$1} END {print s}'
+      - description: Average a CSV column
+        command: awk -F',' 'NR>1 {s+=$3; n++} END {print s/n}' data.csv
+    gotchas:
+      - Empty input divides by zero in the average example — add a guard.
+    tags: [awk, math, stats]
+
+  - id: awk-filter-rows
+    title: Filter rows on a condition
+    category: awk
+    command: awk -F',' '$<n> <op> "<val>"' <file>
+    explanation: |
+      Awk patterns act as filters. Anything before `{ … }` is a condition; if
+      you only want filtering, omit the action and awk prints `$0`.
+    flags: []
+    examples:
+      - description: Rows where price > 100
+        command: awk -F',' 'NR==1 || $4+0 > 100' sales.csv
+      - description: Keep error-level log lines
+        command: awk '/ERROR|FATAL/' app.log
+    gotchas:
+      - "`$4 > 100` does string comparison if you don't force numeric context with `+0`."
+    tags: [awk, filter]
+
+  - id: awk-group-count
+    title: Group-by count with awk
+    category: awk
+    command: awk -F'<delim>' '{c[$<n>]++} END {for (k in c) print k, c[k]}' <file>
+    explanation: |
+      Builds an associative array keyed by a column and prints counts. A common
+      replacement for spinning up pandas just to count something.
+    flags: []
+    examples:
+      - description: Count HTTP status codes
+        command: awk '{c[$9]++} END {for (k in c) print k, c[k]}' access.log
+      - description: Top 10 user agents
+        command: |
+          awk -F'"' '{c[$6]++} END {for (k in c) print c[k], k}' access.log | sort -nr | head
+    gotchas:
+      - Output order is unspecified — pipe through `sort` if you care.
+    tags: [awk, groupby, logs]
+
+  - id: awk-unique-rows
+    title: Deduplicate rows by a key column
+    category: awk
+    command: awk -F'<delim>' '!seen[$<n>]++' <file>
+    explanation: |
+      Classic awk idiom: only print rows whose key column hasn't been seen
+      before. Keeps the first occurrence and preserves input order.
+    flags: []
+    examples:
+      - description: Dedupe a CSV by id column
+        command: awk -F',' '!seen[$1]++' data.csv
+    gotchas:
+      - Empty rows count as a seen key of "".
+    tags: [awk, dedupe]

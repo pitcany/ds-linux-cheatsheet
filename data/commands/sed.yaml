@@ -1,0 +1,88 @@
+category: sed
+commands:
+  - id: sed-replace-in-place
+    title: Replace text in place
+    category: sed
+    command: sed -i 's/<from>/<to>/g' <file>
+    explanation: |
+      Edits a file in place. The `g` flag makes the substitution global per
+      line. Always preview without `-i` first on a copy.
+    flags:
+      - -i        edit in place
+      - -i.bak    backup with extension
+      - -E        extended regex
+      - g flag    replace all matches per line
+    examples:
+      - description: Rename a variable across a file
+        command: sed -i 's/old_name/new_name/g' train.py
+      - description: Strip trailing whitespace
+        command: sed -i 's/[[:space:]]*$//' src/**/*.py
+      - description: Use a different delimiter for path replacements
+        command: sed -i 's|/old/path|/new/path|g' config.toml
+    gotchas:
+      - macOS BSD sed requires an empty extension after `-i` — `sed -i '' …`.
+      - Without `g`, only the first match per line is replaced.
+    tags: [sed, regex, edit]
+
+  - id: sed-delete-lines
+    title: Delete lines matching a pattern
+    category: sed
+    command: sed -i '/<pattern>/d' <file>
+    explanation: Removes every line matching the regex. Useful for cleaning logs.
+    flags: []
+    examples:
+      - description: Drop comment lines
+        command: sed -i '/^#/d' config.cfg
+      - description: Remove DEBUG lines from a log
+        command: sed -i '/DEBUG/d' app.log
+    gotchas:
+      - Inverse — to keep matching lines, use `sed -n '/pattern/p'`.
+    tags: [sed, delete]
+
+  - id: sed-print-range
+    title: Print a specific line range
+    category: sed
+    command: sed -n '<start>,<end>p' <file>
+    explanation: Faster than scrolling through `less` when you know the line numbers.
+    flags:
+      - -n  suppress default output
+      - p   print
+    examples:
+      - description: Show lines 100–120
+        command: sed -n '100,120p' build.log
+    gotchas:
+      - For huge files, `awk 'NR==100,NR==120'` is sometimes faster.
+    tags: [sed, view]
+
+  - id: sed-capture-groups
+    title: Reorder fields with capture groups
+    category: sed
+    command: sed -E 's/(<a>).(<b>)/\2 \1/' <file>
+    explanation: |
+      Extended regex (`-E`) lets you capture groups with `( … )` and reference
+      them as `\1`, `\2`… great for reformatting CSVs without awk.
+    flags:
+      - -E  extended regex
+    examples:
+      - description: Swap First,Last to Last, First
+        command: sed -E 's/^([^,]+),([^,]+)$/\2, \1/' names.csv
+    gotchas:
+      - On GNU sed `-r` is a synonym for `-E`; prefer `-E` for portability.
+    tags: [sed, regex, csv]
+
+  - id: sed-insert-before-line
+    title: Insert text before a matching line
+    category: sed
+    command: sed -i '/<pattern>/i <text>' <file>
+    explanation: |
+      `i` inserts before the matching line; `a` appends after. Handy for
+      adding shebang or import statements programmatically.
+    flags:
+      - i  insert before
+      - a  append after
+    examples:
+      - description: Add a shebang
+        command: sed -i '1i #!/usr/bin/env python3' script.py
+    gotchas:
+      - The `1i` form targets a line number, not a regex.
+    tags: [sed, insert]

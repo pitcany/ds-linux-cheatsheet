@@ -1,0 +1,110 @@
+category: disk
+commands:
+  - id: df-human
+    title: Show disk space, human-readable
+    category: disk
+    command: df -hT
+    explanation: |
+      `-h` formats sizes in K/M/G, `-T` adds the filesystem type. Quick health
+      check on a new machine.
+    flags:
+      - -h  human-readable
+      - -T  filesystem type
+      - -i  inodes
+    examples:
+      - description: Sizes and FS types
+        command: df -hT
+      - description: Inode usage (a common cause of "no space left" with disk free)
+        command: df -i
+    gotchas:
+      - Mounted overlays can double-count usage.
+    tags: [df, disk]
+
+  - id: du-top-dirs
+    title: Top directories by size
+    category: disk
+    command: du -h --max-depth=1 <dir> | sort -h
+    explanation: |
+      Lists each subdirectory's total size, sortable. Pair with `tail` for
+      "biggest 10" output.
+    flags:
+      - -h          human-readable
+      - --max-depth N
+      - -x          stay on one FS
+    examples:
+      - description: Top-level breakdown
+        command: du -h --max-depth=1 /data | sort -h
+      - description: Biggest 10
+        command: du -h --max-depth=1 /data | sort -h | tail -10
+    gotchas:
+      - On big trees, `du` walks every file. Consider `ncdu` for interactive use.
+    tags: [du, disk]
+
+  - id: ncdu-scan
+    title: Interactive disk usage browser
+    category: disk
+    command: ncdu <dir>
+    explanation: |
+      Walks the tree once then lets you navigate, delete, and re-scan. Way
+      faster than repeated `du` calls.
+    flags:
+      - -x  stay on filesystem
+      - -o file  export results
+    examples:
+      - description: Scan /data
+        command: ncdu /data
+      - description: Save scan for later
+        command: ncdu -o scan.json /data
+    gotchas:
+      - First scan is slow; subsequent navigation is instant.
+    tags: [ncdu, disk]
+
+  - id: file-types-count
+    title: Count files by extension
+    category: disk
+    command: find <dir> -type f | sed -E 's|.*\.||' | sort | uniq -c | sort -nr
+    explanation: |
+      Quick way to see what fills a directory — usually pickles, checkpoints,
+      or notebooks in ML projects.
+    flags: []
+    examples:
+      - description: Audit a dataset directory
+        command: find /data -type f | sed -E 's|.*\.||' | sort | uniq -c | sort -nr
+    gotchas:
+      - Files without extensions get a confusing entry.
+    tags: [audit, disk]
+
+  - id: dust-quick
+    title: dust — pretty `du` replacement
+    category: disk
+    command: dust <dir>
+    explanation: |
+      Rust-based, colorized, sorted-by-default disk usage viewer. Faster to
+      read than `du -h | sort -h`.
+    flags:
+      - -d N  depth
+      - -r    reverse sort
+      - -X glob  exclude
+    examples:
+      - description: Top consumers under /data
+        command: dust -d 2 /data
+    gotchas:
+      - Install via cargo, brew, or apt depending on platform.
+    tags: [dust, disk]
+
+  - id: lsblk-overview
+    title: List block devices and mounts
+    category: disk
+    command: lsblk -f
+    explanation: |
+      Tree of disks, partitions, filesystems, and mount points. The first
+      thing to check on a new box.
+    flags:
+      - -f   filesystem info
+      - -p   full paths
+      - -d   disks only
+    examples:
+      - description: With filesystem labels
+        command: lsblk -f
+    gotchas: []
+    tags: [lsblk, disk]

@@ -1,0 +1,56 @@
+Screen {
+    background: $surface;
+}
+
+#top-bar {
+    height: 3;
+    padding: 0 1;
+    background: $boost;
+    border-bottom: solid $primary;
+}
+
+#search-input {
+    width: 1fr;
+}
+
+#status {
+    width: auto;
+    color: $text-muted;
+    padding: 1 1;
+}
+
+#main {
+    height: 1fr;
+}
+
+#categories {
+    width: 22;
+    border-right: solid $primary;
+}
+
+#commands {
+    width: 38;
+    border-right: solid $primary;
+}
+
+#detail {
+    width: 1fr;
+    padding: 1 2;
+}
+
+ListView > ListItem {
+    padding: 0 1;
+}
+
+ListView > ListItem.--highlight {
+    background: $accent 30%;
+}
+
+.danger {
+    color: $error;
+    text-style: bold;
+}
+
+#detail-body {
+    height: 1fr;
+}

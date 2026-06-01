@@ -1,0 +1,151 @@
+category: csv_tools
+commands:
+  - id: head-tail-csv
+    title: Peek at first/last rows of a CSV
+    category: csv_tools
+    command: head -n <N> <file>
+    explanation: |
+      `head` and `tail` are the cheapest way to look at a giant CSV without
+      loading it into pandas.
+    flags:
+      - -n N
+    examples:
+      - description: First 5 lines
+        command: head -n 5 huge.csv
+      - description: Last 5 lines
+        command: tail -n 5 huge.csv
+      - description: Quick row count
+        command: wc -l huge.csv
+    gotchas:
+      - "`wc -l` counts newlines, so a trailing-newline-less file is off by one."
+    tags: [csv, view]
+
+  - id: cut-columns
+    title: Extract columns by index
+    category: csv_tools
+    command: cut -d',' -f<fields> <file>
+    explanation: |
+      Splits each row on the delimiter and prints selected fields. Fast and
+      stdlib-only.
+    flags:
+      - -d,         delimiter
+      - -f1,3,5     specific columns
+      - -f2-        from col 2 onward
+    examples:
+      - description: First and third columns
+        command: cut -d',' -f1,3 data.csv
+    gotchas:
+      - "`cut` doesn't understand quoted fields — use `csvcut` for real CSVs."
+    tags: [cut, csv]
+
+  - id: csvkit-csvcut
+    title: csvcut — proper CSV column selection
+    category: csv_tools
+    command: csvcut -c <cols> <file>
+    explanation: |
+      Part of csvkit. Understands quoted commas and gives you column names,
+      not just indices.
+    flags:
+      - -c name1,name2  by name
+      - -c 1,3          by index
+      - -n              list column names
+    examples:
+      - description: List columns
+        command: csvcut -n data.csv
+      - description: Select by name
+        command: csvcut -c date,price data.csv
+    gotchas:
+      - "`pip install csvkit` first."
+    tags: [csvkit, csv]
+
+  - id: csvkit-csvstat
+    title: csvstat — quick column statistics
+    category: csv_tools
+    command: csvstat <file>
+    explanation: |
+      Per-column type inference, min/max/mean/median, null counts. Very useful
+      for a first look at a fresh dataset.
+    flags:
+      - --max / --min / --mean / --median
+      - -c <col>  one column
+    examples:
+      - description: Stats for one column
+        command: csvstat -c price data.csv
+    gotchas:
+      - For files > a few GB, prefer DuckDB.
+    tags: [csvkit, stats]
+
+  - id: split-csv-rows
+    title: Split a CSV by row count
+    category: csv_tools
+    command: split -l <rows> --additional-suffix=.csv <file> <prefix>
+    explanation: |
+      Splits a file into chunks of N lines. Add a small wrapper to keep the
+      header on every chunk.
+    flags:
+      - -l N                  lines per chunk
+      - --additional-suffix
+    examples:
+      - description: 100k rows per shard
+        command: split -l 100000 --additional-suffix=.csv huge.csv shard_
+      - description: Keep header on every shard
+        command: |
+          tail -n +2 huge.csv | split -l 100000 --filter='{ head -n1 huge.csv; cat; } > $FILE' - shard_
+    gotchas:
+      - Plain `split` drops the header on chunks 2+.
+    tags: [csv, split]
+
+  - id: duckdb-csv
+    title: Query a CSV with DuckDB
+    category: csv_tools
+    command: duckdb -c "SELECT * FROM read_csv_auto('<file>') LIMIT 10"
+    explanation: |
+      DuckDB reads CSV directly, with type inference, and is dramatically faster
+      than pandas for ad-hoc queries on multi-GB files.
+    flags: []
+    examples:
+      - description: Top 10 by price
+        command: duckdb -c "SELECT * FROM read_csv_auto('data.csv') ORDER BY price DESC LIMIT 10"
+      - description: GROUP BY summary
+        command: duckdb -c "SELECT region, COUNT(*) FROM read_csv_auto('data.csv') GROUP BY region"
+    gotchas:
+      - "`read_csv_auto` infers types from a sample; pass explicit types for stability."
+    tags: [duckdb, sql, csv]
+
+  - id: xsv-stats
+    title: xsv — fast CSV indexer/statter
+    category: csv_tools
+    command: xsv stats <file>
+    explanation: |
+      Rust-based CSV toolkit: `xsv stats`, `xsv select`, `xsv slice`, all of
+      which scale to multi-GB files much better than csvkit.
+    flags:
+      - select / slice / stats / index
+    examples:
+      - description: Column statistics
+        command: xsv stats data.csv | xsv table
+      - description: Random 1k rows
+        command: xsv sample 1000 data.csv > sample.csv
+    gotchas:
+      - "`xsv index` accelerates random-access ops at the cost of an `.idx` file."
+    tags: [xsv, csv, fast]
+
+  - id: miller-mlr
+    title: Miller — pivot/group across CSV/TSV/JSON
+    category: csv_tools
+    command: mlr --csv <verb> <file>
+    explanation: |
+      Miller (`mlr`) is awk for structured data: it understands headers and
+      can switch formats with `--c2t`, `--c2j`, etc.
+    flags:
+      - --csv / --tsv / --json
+      - --c2t  CSV to TSV
+      - --c2j  CSV to JSON
+    examples:
+      - description: Group-by sum
+        command: mlr --csv stats1 -a sum -f price -g region data.csv
+      - description: Convert CSV to JSON lines
+        command: mlr --c2j cat data.csv > data.jsonl
+    gotchas:
+      - The verb-then-options syntax takes a moment to learn.
+    tags: [miller, mlr, csv]

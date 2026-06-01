@@ -1,0 +1,102 @@
+category: find
+commands:
+  - id: find-large-files
+    title: Find large files under a directory
+    category: find
+    command: find <dir> -type f -size +<size>
+    explanation: |
+      Walks a directory tree and prints files larger than the given size. Pair
+      with `-printf` or `du -h` to display human-readable sizes.
+    flags:
+      - -type f  regular files only
+      - -size +1G  bigger than 1 GiB
+      - -mtime -7  modified in the last week
+      - -printf  custom output
+    examples:
+      - description: Files larger than 1 GiB
+        command: find /data -type f -size +1G
+      - description: Top 10 largest files, sorted
+        command: find /data -type f -printf '%s %p\n' | sort -nr | head
+      - description: Recently changed checkpoints
+        command: find ./checkpoints -type f -name '*.pt' -mtime -1
+    gotchas:
+      - Without `-type f`, you'll match directories too.
+      - On NFS, walks can be slow; consider `fd` or `locate`.
+    tags: [find, disk, large]
+
+  - id: fd-search
+    title: fd — friendly alternative to find
+    category: find
+    command: fd '<pattern>' <dir>
+    explanation: |
+      `fd` is a fast, ergonomic file finder that respects `.gitignore` by
+      default. The pattern is a regex by default; use `-g` for globs.
+    flags:
+      - -e py  extension filter
+      - -t f / -t d  type filter
+      - -H  include hidden files
+      - -x cmd  execute per result
+    examples:
+      - description: Find all Python files
+        command: fd -e py
+      - description: Find ipynb checkpoints to delete
+        command: fd -H -t d '.ipynb_checkpoints'
+      - description: Touch every requirements file
+        command: fd -g 'requirements*.txt' -x touch
+    gotchas:
+      - On Debian/Ubuntu the binary is sometimes called `fdfind`.
+    tags: [fd, search, fast]
+
+  - id: find-delete-pycache
+    title: Delete __pycache__ directories project-wide
+    category: find
+    command: find . -type d -name __pycache__ -prune -exec rm -rf {} +
+    explanation: |
+      Recursively removes Python bytecode caches without descending into them.
+      `-prune` prevents `find` from trying to recurse into a directory it is
+      about to delete.
+    flags:
+      - -prune       skip recursing
+      - -exec ... +  pass many results to one command
+    examples:
+      - description: Clean a repo of bytecode
+        command: find . -type d -name __pycache__ -prune -exec rm -rf {} +
+    gotchas:
+      - Always inspect with `-print` before swapping in `-delete`.
+    dangerous: true
+    tags: [find, cleanup, python]
+
+  - id: find-by-content-then-act
+    title: Find files matching a pattern then act on them
+    category: find
+    command: find <dir> -name '*.log' -mtime -7 -print0 | xargs -0 grep -l 'ERROR'
+    explanation: |
+      Combines `find` with `xargs -0` to safely operate on filenames that may
+      contain spaces or newlines.
+    flags:
+      - -print0  NUL-terminated output
+      - xargs -0  consume NUL-terminated input
+    examples:
+      - description: Recent log files containing ERROR
+        command: find /var/log -name '*.log' -mtime -7 -print0 | xargs -0 grep -l 'ERROR'
+    gotchas:
+      - Don't forget `-0` on both sides or unusual filenames will break the pipeline.
+    tags: [find, xargs, logs]
+
+  - id: find-empty
+    title: Find empty files and directories
+    category: find
+    command: find <dir> -empty
+    explanation: |
+      Locates zero-byte files and empty directories — a common symptom of
+      half-finished downloads or failed jobs.
+    flags:
+      - -type f / -type d
+    examples:
+      - description: Empty checkpoint files
+        command: find ./checkpoints -type f -empty
+      - description: Empty subdirectories
+        command: find . -type d -empty
+    gotchas:
+      - Combine with `-delete` only after a `-print` preview.
+    tags: [find, audit]

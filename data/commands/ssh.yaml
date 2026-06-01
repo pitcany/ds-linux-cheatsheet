@@ -1,0 +1,131 @@
+category: ssh
+commands:
+  - id: ssh-keygen-ed25519
+    title: Generate an ed25519 SSH key
+    category: ssh
+    command: ssh-keygen -t ed25519 -C '<email>'
+    explanation: |
+      ed25519 keys are short, fast, and modern. The comment is purely cosmetic
+      but helps you identify keys later. The key lives in `~/.ssh/id_ed25519`
+      by default.
+    flags:
+      - -t ed25519  algorithm
+      - -C <comment>  comment
+      - -f <path>  output file
+      - -N ''  no passphrase (use sparingly)
+    examples:
+      - description: Standard key with a comment
+        command: ssh-keygen -t ed25519 -C "yannik@example.com"
+      - description: Dedicated key for a specific host
+        command: ssh-keygen -t ed25519 -f ~/.ssh/id_remote_gpu -C "gpu-box"
+    gotchas:
+      - Skipping the passphrase makes anyone with the file gain access.
+    tags: [ssh, security, keys]
+
+  - id: ssh-copy-id
+    title: Install your public key on a remote
+    category: ssh
+    command: ssh-copy-id <user>@<host>
+    explanation: |
+      Appends your public key to the remote host's `~/.ssh/authorized_keys`,
+      enabling passwordless login.
+    flags:
+      - -i <path>  use a specific identity
+      - -p <port>  alternate port
+    examples:
+      - description: Standard installation
+        command: ssh-copy-id ubuntu@gpu-01.example.com
+      - description: With a specific key
+        command: ssh-copy-id -i ~/.ssh/id_remote_gpu.pub ubuntu@gpu-01
+    gotchas:
+      - The remote `~/.ssh` must have mode 700; the file mode 600.
+    tags: [ssh, keys]
+
+  - id: ssh-config-host
+    title: Define a host alias in ~/.ssh/config
+    category: ssh
+    command: |
+      Host <alias>
+        HostName <host>
+        User <user>
+        IdentityFile <key>
+        ServerAliveInterval 60
+    explanation: |
+      Configuring an alias means `ssh gpu0` rather than typing the full
+      `ssh -i … -p … user@host` each time, and it's portable across rsync/scp.
+    flags: []
+    examples:
+      - description: GPU box with keepalive
+        command: |
+          Host gpu0
+            HostName 10.0.0.42
+            User ubuntu
+            IdentityFile ~/.ssh/id_remote_gpu
+            ServerAliveInterval 60
+    gotchas:
+      - File must be `chmod 600` or SSH ignores it.
+    tags: [ssh, config]
+
+  - id: ssh-tunnel-local
+    title: Local SSH tunnel to a remote port
+    category: ssh
+    command: ssh -N -L <local_port>:localhost:<remote_port> <user>@<host>
+    explanation: |
+      Forwards a local port to a remote service. Lets you reach a remote
+      Jupyter server at `http://localhost:8888` without exposing it publicly.
+    flags:
+      - -N  do not run a remote command
+      - -L  local forward
+      - -f  background after auth
+    examples:
+      - description: Jupyter from a remote GPU box
+        command: ssh -N -L 8888:localhost:8888 ubuntu@gpu-01
+      - description: TensorBoard via tunnel
+        command: ssh -N -L 6006:localhost:6006 ubuntu@gpu-01
+    gotchas:
+      - If port 8888 is taken locally, pick another like `-L 8899:localhost:8888`.
+    tags: [ssh, tunnel, jupyter]
+
+  - id: scp-basic
+    title: Copy a file to a remote machine
+    category: ssh
+    command: scp <src> <user>@<host>:<dst>
+    explanation: |
+      Single-shot file transfer over SSH. For large or repeated transfers,
+      prefer `rsync -avz` because it can resume.
+    flags:
+      - -r  recursive
+      - -P <port>  alternate port
+      - -C  compression
+    examples:
+      - description: Send a checkpoint
+        command: scp ckpt.pt ubuntu@gpu-01:/data/checkpoints/
+      - description: Pull a remote log
+        command: scp ubuntu@gpu-01:/data/train.log .
+    gotchas:
+      - scp is being deprecated in favor of `sftp`/`rsync` — both are fine.
+    tags: [scp, transfer]
+
+  - id: rsync-sync
+    title: Mirror a directory with resume support
+    category: ssh
+    command: rsync -avzP <src>/ <user>@<host>:<dst>/
+    explanation: |
+      `-a` preserves attributes, `-v` is verbose, `-z` compresses, `-P` shows
+      progress and allows resuming partial transfers.
+    flags:
+      - -a  archive
+      - -v  verbose
+      - -z  compression
+      - -P  progress + partial
+      - --dry-run  preview without copying
+      - --delete  remove files missing on src
+    examples:
+      - description: Push a dataset
+        command: rsync -avzP ./dataset/ ubuntu@gpu-01:/data/dataset/
+      - description: Pull results, deleting stale files
+        command: rsync -avzP --delete ubuntu@gpu-01:/data/runs/ ./runs/
+    gotchas:
+      - The trailing `/` on the source matters — without it rsync nests another directory.
+      - "`--delete` is irreversible — always dry-run first."
+    tags: [rsync, transfer, sync]

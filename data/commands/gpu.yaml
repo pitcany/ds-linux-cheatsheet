@@ -1,0 +1,96 @@
+category: gpu
+commands:
+  - id: nvidia-smi
+    title: Snapshot of GPU usage
+    category: gpu
+    command: nvidia-smi
+    explanation: |
+      One-shot status: driver version, GPUs, memory, processes. The first
+      command you reach for on a new GPU box.
+    flags:
+      - -l N    refresh every N seconds
+      - --query-gpu=...
+    examples:
+      - description: Live snapshot
+        command: nvidia-smi
+      - description: Refresh every 2 seconds
+        command: nvidia-smi -l 2
+      - description: Just the numbers (CSV-style)
+        command: nvidia-smi --query-gpu=index,name,memory.used,memory.total,utilization.gpu --format=csv
+    gotchas:
+      - Process list is empty if your driver and nvidia-smi versions mismatch.
+    tags: [gpu, nvidia, monitoring]
+
+  - id: nvtop
+    title: Interactive GPU monitor
+    category: gpu
+    command: nvtop
+    explanation: |
+      htop-style GPU monitor: utilization, memory, processes — across NVIDIA,
+      AMD, and Intel.
+    flags: []
+    examples:
+      - description: Run it
+        command: nvtop
+    gotchas:
+      - On older distros, install via cargo or apt's universe repo.
+    tags: [gpu, monitoring]
+
+  - id: gpu-which-process
+    title: Find which PID owns GPU memory
+    category: gpu
+    command: nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
+    explanation: |
+      When the GPU appears wedged, this tells you which processes still hold
+      memory — usually a half-dead Python worker.
+    flags: []
+    examples:
+      - description: List compute processes
+        command: nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
+      - description: Kill ghost Python processes
+        command: |
+          nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader |
+            awk -F',' '$2 ~ /python/ {print $1}' | xargs -r kill -9
+    gotchas:
+      - The kill line is destructive — confirm the PIDs first.
+    dangerous: true
+    tags: [gpu, nvidia, debug]
+
+  - id: cuda-visible-devices
+    title: Pin a job to specific GPUs
+    category: gpu
+    command: CUDA_VISIBLE_DEVICES=<ids> <command>
+    explanation: |
+      A standard environment variable consumed by CUDA, PyTorch, TensorFlow.
+      Hides all other GPUs from the process.
+    flags: []
+    examples:
+      - description: Use only GPU 0
+        command: CUDA_VISIBLE_DEVICES=0 python train.py
+      - description: Train on GPUs 2 and 3
+        command: CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc-per-node=2 train.py
+      - description: Hide all GPUs (force CPU)
+        command: CUDA_VISIBLE_DEVICES= python smoke.py
+    gotchas:
+      - Mixing this with `--gpus` inside Docker can be confusing — pick one layer.
+    tags: [gpu, cuda, env]
+
+  - id: nvidia-smi-dmon
+    title: Stream GPU telemetry to stdout
+    category: gpu
+    command: nvidia-smi dmon -s pucvmet -i <gpu>
+    explanation: |
+      `dmon` emits a rolling CSV of utilization, memory bandwidth, power,
+      clocks, temperature. Easy to pipe into a log or a plotter.
+    flags:
+      - -s pucvmet  metric groups
+      - -i N        GPU index
+      - -c N        sample count
+    examples:
+      - description: Watch GPU 0 every second
+        command: nvidia-smi dmon -s pucvmet -i 0
+      - description: Log 60 samples to disk
+        command: nvidia-smi dmon -s pucvmet -i 0 -c 60 > gpu0.log
+    gotchas:
+      - Not every metric is supported on every architecture.
+    tags: [gpu, monitoring, log]

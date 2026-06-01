@@ -1,0 +1,132 @@
+category: git
+commands:
+  - id: git-status-short
+    title: Compact git status
+    category: git
+    command: git status -sb
+    explanation: |
+      `-s` produces short, machine-friendly output. `-b` adds the current
+      branch line. Faster to read at a glance than the default.
+    flags:
+      - -s  short
+      - -b  branch info
+    examples:
+      - description: Glanceable status
+        command: git status -sb
+    gotchas: []
+    tags: [git, status]
+
+  - id: git-log-pretty
+    title: Pretty one-line log graph
+    category: git
+    command: git log --oneline --graph --decorate --all
+    explanation: |
+      Visualizes the commit graph with branch and tag decorations. Aliasing
+      this as `git lg` saves a lot of typing.
+    flags:
+      - --oneline
+      - --graph
+      - --decorate
+      - --all
+    examples:
+      - description: Walk the full history graph
+        command: git log --oneline --graph --decorate --all
+      - description: Recent activity
+        command: git log --oneline -n 20
+    gotchas: []
+    tags: [git, log, history]
+
+  - id: git-diff-staged
+    title: Diff staged changes only
+    category: git
+    command: git diff --staged
+    explanation: |
+      Shows what's about to be committed. `--cached` is a synonym. Use before
+      every commit.
+    flags:
+      - --staged / --cached
+      - --stat  summary
+    examples:
+      - description: Review what you're about to commit
+        command: git diff --staged
+    gotchas:
+      - Without `--staged`, `git diff` shows *unstaged* changes — opposite of what you may want.
+    tags: [git, diff, review]
+
+  - id: git-rebase-interactive
+    title: Interactively rebase recent commits
+    category: git
+    command: git rebase -i HEAD~<n>
+    explanation: |
+      Rewrite history for the last n commits — reorder, squash, fixup, drop.
+      Best done before pushing.
+    flags:
+      - -i  interactive
+      - --autosquash  honour fixup!/squash! commits
+    examples:
+      - description: Squash the last 3 WIP commits
+        command: git rebase -i HEAD~3
+    gotchas:
+      - Never rebase commits you've shared unless coworkers expect it.
+    tags: [git, rebase]
+
+  - id: git-stash-push
+    title: Stash uncommitted changes
+    category: git
+    command: git stash push -m '<message>'
+    explanation: |
+      Saves dirty changes onto a stack so you can switch branches cleanly.
+      Use a message so future-you knows what it was.
+    flags:
+      - -m <msg>  message
+      - -u        include untracked
+      - --keep-index  leave staged changes alone
+    examples:
+      - description: Quick context switch
+        command: "git stash push -m 'wip: tuning lr'"
+      - description: Include untracked notebooks
+        command: git stash push -u -m 'wip notebooks'
+    gotchas:
+      - "`git stash pop` re-applies AND drops; use `git stash apply` to keep it on the stack."
+    tags: [git, stash]
+
+  - id: git-bisect
+    title: Find the commit that introduced a bug
+    category: git
+    command: git bisect start <bad> <good>
+    explanation: |
+      Binary search through history. Tell git which commit is bad and which is
+      known good, then mark each step `good` or `bad` until it isolates the
+      culprit.
+    flags: []
+    examples:
+      - description: Walk back from HEAD to a known good tag
+        command: |
+          git bisect start
+          git bisect bad HEAD
+          git bisect good v1.2.0
+    gotchas:
+      - "`git bisect reset` returns you to the original branch."
+    tags: [git, debug]
+
+  - id: git-clean-dry-run
+    title: Preview untracked files git would delete
+    category: git
+    command: git clean -nd
+    explanation: |
+      `-n` is dry-run, `-d` includes directories. Always preview before running
+      `git clean -fd`.
+    flags:
+      - -n  dry run
+      - -d  directories
+      - -f  force
+      - -x  include ignored files
+    examples:
+      - description: Preview cleanup
+        command: git clean -nd
+      - description: Actually clean (after preview)
+        command: git clean -fd
+    gotchas:
+      - "`-x` removes files in `.gitignore` — easy way to lose `.env`."
+    dangerous: true
+    tags: [git, cleanup]

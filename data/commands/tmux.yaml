@@ -1,0 +1,113 @@
+category: tmux
+commands:
+  - id: tmux-new-session
+    title: Create a new named tmux session
+    category: tmux
+    command: tmux new -s <name>
+    explanation: |
+      Starts a new tmux session with a descriptive name. Named sessions are easier
+      to reattach later and survive SSH disconnects, which is essential when
+      running long training jobs on remote GPU boxes.
+    flags:
+      - -s <name>  session name
+      - -d         start detached
+      - -A         attach if session exists, otherwise create
+    examples:
+      - description: Start a session for training
+        command: tmux new -s train
+      - description: Create-or-attach in one shot
+        command: tmux new -As gpu0
+      - description: Detached session that runs a job
+        command: tmux new -d -s nightly 'python train.py'
+    gotchas:
+      - Inside tmux, the prefix is Ctrl-b by default; many remap to Ctrl-a.
+      - Sessions die if the tmux server dies — `tmux kill-server` is destructive.
+    tags: [tmux, session, persistence]
+
+  - id: tmux-attach
+    title: Reattach to an existing tmux session
+    category: tmux
+    command: tmux attach -t <name>
+    explanation: |
+      Reattaches your terminal to a previously detached tmux session. Combine
+      with `ssh user@host -t 'tmux attach -t train'` to drop straight into a
+      remote training session.
+    flags:
+      - -t <name>  target session
+      - -d         detach other clients first
+    examples:
+      - description: Attach to the train session
+        command: tmux attach -t train
+      - description: Attach, kicking off other viewers
+        command: tmux attach -d -t train
+    gotchas:
+      - If no name is given, tmux attaches to the most recent session.
+    tags: [tmux, attach, remote]
+
+  - id: tmux-list-sessions
+    title: List running tmux sessions
+    category: tmux
+    command: tmux ls
+    explanation: Shows all live tmux sessions with creation time and window count.
+    flags: []
+    examples:
+      - description: List sessions
+        command: tmux ls
+    gotchas:
+      - Returns non-zero if no sessions exist — handy in shell scripts.
+    tags: [tmux, list]
+
+  - id: tmux-split-pane
+    title: Split the current tmux pane
+    category: tmux
+    command: tmux split-window -h
+    explanation: |
+      Splits the active pane. `-h` splits horizontally (side by side), `-v`
+      stacks them. Useful when watching `nvidia-smi` next to a training log.
+    flags:
+      - -h  horizontal split
+      - -v  vertical split
+      - -c <dir>  start in directory
+    examples:
+      - description: Side-by-side split
+        command: tmux split-window -h
+      - description: Stacked split starting in /tmp
+        command: tmux split-window -v -c /tmp
+    gotchas:
+      - Inside tmux you can usually just press `prefix %` or `prefix "`.
+    tags: [tmux, pane, split]
+
+  - id: tmux-send-keys
+    title: Send a command to a running tmux pane
+    category: tmux
+    command: tmux send-keys -t <target> '<command>' C-m
+    explanation: |
+      Sends keystrokes to a target pane, optionally pressing Enter. Great for
+      driving a training loop from a controller script without manually
+      attaching.
+    flags:
+      - -t <target>  pane or session target
+      - C-m          carriage return (Enter)
+    examples:
+      - description: Kick a training run from outside tmux
+        command: tmux send-keys -t train:0 'python train.py' C-m
+    gotchas:
+      - Forgetting `C-m` leaves the text typed but unexecuted.
+    tags: [tmux, automation]
+
+  - id: tmux-kill-session
+    title: Kill a tmux session
+    category: tmux
+    command: tmux kill-session -t <name>
+    explanation: Terminates a specific session and all its windows.
+    flags:
+      - -t <name>  target session
+      - -a         kill all but the target
+    examples:
+      - description: Kill the train session
+        command: tmux kill-session -t train
+      - description: Keep only `train`
+        command: tmux kill-session -a -t train
+    gotchas:
+      - Long-running processes inside the session receive SIGHUP.
+    tags: [tmux, cleanup]

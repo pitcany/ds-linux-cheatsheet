@@ -1,0 +1,102 @@
+category: grep
+commands:
+  - id: grep-recursive
+    title: Recursively grep with line numbers
+    category: grep
+    command: grep -rn '<pattern>' <dir>
+    explanation: |
+      Recursively searches for a regex under a directory. `-n` includes line
+      numbers so you can jump straight to a match in your editor.
+    flags:
+      - -r  recursive
+      - -n  line numbers
+      - -I  ignore binary files
+      - --include='*.py'  filter by glob
+    examples:
+      - description: Find TODOs in a Python project
+        command: grep -rn --include='*.py' 'TODO' src/
+      - description: Skip hidden dirs and binaries
+        command: grep -rIn --exclude-dir='.*' 'ValueError' .
+    gotchas:
+      - Plain `grep` doesn't support PCRE; use `grep -P` (GNU only) or ripgrep.
+    tags: [grep, search, recursive]
+
+  - id: ripgrep-basic
+    title: ripgrep — fast project-wide search
+    category: grep
+    command: rg '<pattern>'
+    explanation: |
+      ripgrep respects `.gitignore` and is much faster than `grep -r`. It is the
+      default search tool in modern editors for a reason.
+    flags:
+      - -i  case-insensitive
+      - -uu  ignore .gitignore and hidden files
+      - -t py  only Python files
+      - -A 3 / -B 3 / -C 3  context lines
+    examples:
+      - description: Search Python files for an exception
+        command: rg -t py 'KeyError' src/
+      - description: Print 3 lines of context around each match
+        command: rg -C 3 'CUDA out of memory' logs/
+      - description: Find every TODO including ignored files
+        command: rg -uu 'TODO'
+    gotchas:
+      - rg uses Rust regex by default, not PCRE — lookarounds need `-P`.
+    tags: [ripgrep, search, fast]
+
+  - id: grep-extended-regex
+    title: Use extended regex with grep
+    category: grep
+    command: grep -E '<pattern>' <file>
+    explanation: |
+      `-E` enables ERE, which gives you `+`, `?`, `|`, `()` without backslashes.
+    flags:
+      - -E  extended regex
+      - -o  print only the match
+      - -v  invert match
+    examples:
+      - description: Extract HTTP error codes
+        command: grep -oE 'HTTP/[0-9.]+ [45][0-9][0-9]' access.log
+    gotchas:
+      - Some BSD greps differ — prefer ripgrep for portability.
+    tags: [grep, regex]
+
+  - id: grep-count
+    title: Count matching lines per file
+    category: grep
+    command: grep -c '<pattern>' <files>
+    explanation: |
+      Reports the number of matching lines per file instead of printing the
+      matches themselves.
+    flags:
+      - -c  count matches
+      - -l  list files with matches
+      - -L  list files without matches
+    examples:
+      - description: How many ERRORs per log file?
+        command: grep -c 'ERROR' logs/*.log
+      - description: Which CSVs contain a header row?
+        command: grep -l '^id,' data/*.csv
+    gotchas:
+      - "`-c` counts matching lines, not total match occurrences."
+    tags: [grep, stats]
+
+  - id: ripgrep-files-only
+    title: List files containing a pattern, without printing matches
+    category: grep
+    command: rg -l '<pattern>'
+    explanation: |
+      Often you only need the list of files for an editor or further pipeline,
+      not the matches themselves.
+    flags:
+      - -l   files with matches
+      - -L   files without matches
+      - -0   NUL-separated for safe xargs
+    examples:
+      - description: Open all matching files in vim
+        command: rg -l 'TODO' | xargs -r nvim
+      - description: NUL-safe pipeline
+        command: rg -l0 'TODO' | xargs -0 wc -l
+    gotchas:
+      - Empty result causes plain `xargs` to invoke the command with no args; use `-r`.
+    tags: [ripgrep, list]

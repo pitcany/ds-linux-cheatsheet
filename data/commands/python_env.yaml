@@ -1,0 +1,131 @@
+category: python_env
+commands:
+  - id: conda-create-env
+    title: Create a new conda environment
+    category: python_env
+    command: conda create -n <name> python=<version> -y
+    explanation: |
+      Creates an isolated conda environment with a specific Python version.
+      `-y` skips the confirmation prompt — handy in scripts.
+    flags:
+      - -n <name>
+      - python=3.12
+      - -y
+    examples:
+      - description: Python 3.12 env for a new project
+        command: conda create -n bert python=3.12 -y
+      - description: Clone an existing env
+        command: conda create -n bert-copy --clone bert
+    gotchas:
+      - Activating in non-interactive shells needs `source $(conda info --base)/etc/profile.d/conda.sh`.
+    tags: [conda, env]
+
+  - id: conda-activate
+    title: Activate a conda environment
+    category: python_env
+    command: conda activate <name>
+    explanation: Sets `PATH` and shell prompt to the env. Use `conda deactivate` to revert.
+    flags: []
+    examples:
+      - description: Switch into an env
+        command: conda activate bert
+    gotchas:
+      - Inside a script, you may need `source conda.sh` first.
+    tags: [conda, env]
+
+  - id: venv-create
+    title: Create a Python venv
+    category: python_env
+    command: python -m venv <dir>
+    explanation: |
+      The standard-library equivalent of conda envs. Lighter weight — uses your
+      system Python but isolates packages.
+    flags:
+      - --prompt <label>
+      - --upgrade-deps
+    examples:
+      - description: Create + activate
+        command: |
+          python -m venv .venv
+          source .venv/bin/activate
+      - description: Upgrade pip/setuptools while creating
+        command: python -m venv --upgrade-deps .venv
+    gotchas:
+      - On Windows the activation script is `Scripts\activate`.
+    tags: [venv, python]
+
+  - id: pip-install-editable
+    title: Install your package in editable mode
+    category: python_env
+    command: pip install -e .
+    explanation: |
+      Editable installs symlink your source into site-packages so changes are
+      picked up immediately. Pair with `[dev]` extras for tooling.
+    flags:
+      - -e .          editable
+      - -e ".[dev]"   extras
+    examples:
+      - description: Standard
+        command: pip install -e .
+      - description: With dev extras
+        command: pip install -e ".[dev]"
+    gotchas:
+      - Some build backends (older setup.py) don't support PEP 660 editable installs.
+    tags: [pip, dev]
+
+  - id: pip-freeze-requirements
+    title: Pin current environment to requirements.txt
+    category: python_env
+    command: pip freeze > requirements.txt
+    explanation: |
+      Captures all installed versions. For reproducible builds, also pin Python
+      version and your direct dependencies separately.
+    flags:
+      - --exclude-editable
+    examples:
+      - description: Reproducible pin
+        command: pip freeze --exclude-editable > requirements.txt
+    gotchas:
+      - Records transitive deps too — use `pip-compile` for cleaner output.
+    tags: [pip, reproducibility]
+
+  - id: pip-install-no-cache
+    title: Reinstall without using the wheel cache
+    category: python_env
+    command: pip install --no-cache-dir --force-reinstall <pkg>
+    explanation: |
+      Useful when a broken wheel is cached locally or after a tricky build
+      failure with native extensions like torch or numpy.
+    flags:
+      - --no-cache-dir
+      - --force-reinstall
+      - "--no-binary :all:"
+    examples:
+      - description: Force rebuild from source
+        command: "pip install --no-cache-dir --no-binary :all: numpy"
+    gotchas:
+      - Rebuilding from source can take a long time without prebuilt wheels.
+    tags: [pip, debug]
+
+  - id: uv-quick-install
+    title: uv — fast Python package installer
+    category: python_env
+    command: uv pip install <pkg>
+    explanation: |
+      `uv` is a Rust-based pip / venv replacement that is dramatically faster
+      at resolving and downloading. Use `uv venv` to create environments.
+    flags:
+      - uv pip install
+      - uv venv
+      - uv sync
+    examples:
+      - description: Create a venv and install
+        command: |
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install -e ".[dev]"
+      - description: Reproducible install from lockfile
+        command: uv sync
+    gotchas:
+      - "`uv` resolves more strictly than pip — sometimes surfaces real conflicts that pip silently masked."
+    tags: [uv, pip, fast]

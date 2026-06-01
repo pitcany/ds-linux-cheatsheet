@@ -1,0 +1,150 @@
+category: bash
+commands:
+  - id: bash-history-search
+    title: Reverse-search shell history
+    category: bash
+    command: Ctrl-r <substring>
+    explanation: |
+      Interactive reverse search through your command history. Type the substring
+      you remember, then keep pressing Ctrl-r to step through older matches.
+    flags: []
+    examples:
+      - description: Find the last `python train.py …` invocation
+        command: Ctrl-r train
+    gotchas:
+      - History is per-shell unless `HISTFILE` is shared (consider `shopt -s histappend`).
+    tags: [bash, history, productivity]
+
+  - id: bash-redirect-stdout-stderr
+    title: Redirect both stdout and stderr to a file
+    category: bash
+    command: cmd > log.txt 2>&1
+    explanation: |
+      Sends standard output and standard error to the same file. The order
+      matters — `2>&1 > log.txt` does *not* do what you might expect.
+    flags:
+      - '>   stdout to file'
+      - '2>  stderr to file'
+      - '&>  both to file (bash only)'
+    examples:
+      - description: Capture training output
+        command: python train.py > train.log 2>&1
+      - description: Bash short form
+        command: python train.py &> train.log
+      - description: Tee while still seeing output
+        command: python train.py 2>&1 | tee train.log
+    gotchas:
+      - tee can change pipe exit codes — use `set -o pipefail` to propagate failures.
+    tags: [bash, io, logging]
+
+  - id: bash-nohup-background
+    title: Run a command immune to hangups
+    category: bash
+    command: nohup cmd > out.log 2>&1 &
+    explanation: |
+      Detaches the process from the terminal and lets it survive your SSH
+      session closing. Combine with `disown -h %1` if you forget the nohup.
+    flags:
+      - '&   background the process'
+    examples:
+      - description: Long training run on a remote box
+        command: nohup python train.py > train.log 2>&1 &
+    gotchas:
+      - For interactive monitoring, tmux/screen are usually nicer.
+    tags: [bash, background, remote]
+
+  - id: bash-set-strict
+    title: Enable strict mode at top of a script
+    category: bash
+    command: set -euo pipefail
+    explanation: |
+      A solid default for bash scripts. `-e` exits on error, `-u` errors on
+      unset variables, `-o pipefail` propagates failures from piped commands.
+    flags:
+      - -e  exit on error
+      - -u  unset variables become errors
+      - -o pipefail  fail pipelines on the first failing command
+    examples:
+      - description: Top of a deploy script
+        command: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+    gotchas:
+      - Watch out for `cmd | true` patterns — pipefail will mask the intent if you forget.
+    tags: [bash, scripting]
+
+  - id: bash-process-substitution
+    title: Use process substitution to compare command output
+    category: bash
+    command: diff <(cmd1) <(cmd2)
+    explanation: |
+      Lets you treat command output as a file. Great for diffing two SQL queries
+      or two model-prediction CSVs without writing temp files.
+    flags: []
+    examples:
+      - description: Compare sorted column values
+        command: diff <(cut -f1 a.tsv | sort) <(cut -f1 b.tsv | sort)
+    gotchas:
+      - Only available in bash/zsh, not POSIX `sh`.
+    tags: [bash, diff, productivity]
+
+  - id: bash-trap-cleanup
+    title: Run cleanup on script exit
+    category: bash
+    command: trap 'rm -rf "$TMPDIR"' EXIT
+    explanation: |
+      Registers a cleanup hook that runs whether the script exits cleanly,
+      errors out, or is interrupted. Essential for scripts that download
+      large datasets to scratch directories.
+    flags: []
+    examples:
+      - description: Always remove a temp workspace
+        command: |
+          TMPDIR=$(mktemp -d)
+          trap 'rm -rf "$TMPDIR"' EXIT
+    gotchas:
+      - Quote `$TMPDIR` in the trap or it expands too early.
+    tags: [bash, cleanup, scripting]
+
+  - id: bash-here-doc
+    title: Pass multi-line input with a heredoc
+    category: bash
+    command: |
+      cmd <<'EOF'
+      multi line
+      content
+      EOF
+    explanation: |
+      Heredocs feed multi-line strings into a command. Quoting `'EOF'` disables
+      variable expansion — handy for SQL or Python that contains `$`.
+    flags: []
+    examples:
+      - description: SQL via psql
+        command: |
+          psql -d mydb <<'SQL'
+          SELECT count(*) FROM users WHERE created_at > now() - interval '1 day';
+          SQL
+      - description: Python one-shot inside a script
+        command: |
+          python - <<'PY'
+          import sys; print(sys.version)
+          PY
+    gotchas:
+      - Without the quotes around `EOF`, `$var` and backticks expand.
+    tags: [bash, heredoc]
+
+  - id: bash-find-replace-recursive
+    title: Recursive in-place find/replace across files
+    category: bash
+    command: rg -l '<from>' | xargs sed -i 's/<from>/<to>/g'
+    explanation: |
+      Uses ripgrep to find files containing the pattern, then sed to rewrite
+      them. Much faster than `find … -exec sed …` because rg skips files that
+      can't match.
+    flags: []
+    examples:
+      - description: Project-wide rename
+        command: rg -l 'old_name' src | xargs sed -i 's/old_name/new_name/g'
+    gotchas:
+      - Use `rg -l0 | xargs -0` if any paths might contain spaces.
+    tags: [bash, refactor]

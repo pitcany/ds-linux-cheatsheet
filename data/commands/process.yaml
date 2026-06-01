@@ -1,0 +1,134 @@
+category: process
+commands:
+  - id: ps-tree
+    title: Show a process tree
+    category: process
+    command: ps auxf
+    explanation: |
+      `f` draws an ASCII tree so you can see parent/child relationships, which
+      is critical for hunting down zombie workers in a multi-process job.
+    flags:
+      - aux  all users + process info
+      - f    tree
+    examples:
+      - description: Full tree
+        command: ps auxf
+      - description: Tree filtered for python
+        command: ps auxf | grep -E '[p]ython'
+    gotchas:
+      - The `[p]ython` trick prevents grep from matching itself.
+    tags: [ps, tree]
+
+  - id: htop
+    title: Interactive process viewer
+    category: process
+    command: htop
+    explanation: |
+      Friendlier than `top`: scrollable, sortable, colour-coded. F6 sorts, F9
+      sends signals.
+    flags:
+      - -u <user>  filter by user
+    examples:
+      - description: Just my processes
+        command: htop -u $USER
+    gotchas:
+      - "`btop` is a modern alternative with charts."
+    tags: [htop, monitoring]
+
+  - id: kill-by-name
+    title: Kill processes by name
+    category: process
+    command: pkill -<sig> -f '<pattern>'
+    explanation: |
+      `-f` matches the full command line, so you can target `python train.py`
+      specifically. Combine with `pgrep -fa` first to preview.
+    flags:
+      - -9      SIGKILL
+      - -15     SIGTERM (default)
+      - -f      match full command line
+      - -u USER limit by user
+    examples:
+      - description: Preview matches
+        command: pgrep -fa 'python train.py'
+      - description: Graceful then hard kill
+        command: pkill -15 -f 'python train.py' && sleep 5 && pkill -9 -f 'python train.py'
+    gotchas:
+      - "`pkill -9` skips cleanup hooks — try SIGTERM first."
+    dangerous: true
+    tags: [kill, process]
+
+  - id: watch-command
+    title: Re-run a command on an interval
+    category: process
+    command: watch -n <seconds> '<command>'
+    explanation: |
+      Reruns a command every N seconds and shows only the latest output.
+      Cheap alternative to dashboards for quick checks.
+    flags:
+      - -n N    interval
+      - -d      highlight differences
+      - --color preserve ANSI colors
+    examples:
+      - description: GPU usage every 2 seconds
+        command: watch -n 2 nvidia-smi
+      - description: Disk free, highlighting changes
+        command: watch -n 5 -d df -h
+    gotchas:
+      - Quote the inner command if it contains pipes or globs.
+    tags: [watch, monitoring]
+
+  - id: lsof-port
+    title: Find which process owns a port
+    category: process
+    command: sudo lsof -i :<port>
+    explanation: |
+      Lists processes with an open socket on the given port. Useful when
+      Jupyter or TensorBoard says "address already in use".
+    flags:
+      - -i :PORT
+      - -nP   numeric output
+    examples:
+      - description: Who is on port 8888?
+        command: sudo lsof -i :8888 -nP
+      - description: All sockets a PID has open
+        command: lsof -p <pid> -nP
+    gotchas:
+      - Requires root to see other users' sockets on most systems.
+    tags: [lsof, network, debug]
+
+  - id: strace-attach
+    title: Trace system calls of a running process
+    category: process
+    command: strace -p <pid> -f -e trace=openat,read,write
+    explanation: |
+      Attaches to a running PID and prints syscalls it issues. The filter
+      keeps output manageable.
+    flags:
+      - -p PID  attach
+      - -f      follow forks
+      - -e trace=...
+      - -o file write to file
+    examples:
+      - description: Watch a stuck process do (or not do) I/O
+        command: strace -p 12345 -f -e trace=openat,read,write
+    gotchas:
+      - May require `ptrace_scope=0` on hardened kernels.
+    tags: [strace, debug]
+
+  - id: nice-ionice
+    title: Lower CPU/IO priority for batch jobs
+    category: process
+    command: nice -n 19 ionice -c 3 <command>
+    explanation: |
+      `nice -n 19` is the lowest CPU priority. `ionice -c 3` is idle-class
+      disk I/O. Use for big copies or reindex jobs you don't want to
+      compete with an interactive session.
+    flags:
+      - nice -n   priority adjustment (higher = nicer)
+      - ionice -c 3   idle class
+    examples:
+      - description: Background a dataset copy
+        command: nice -n 19 ionice -c 3 rsync -a /raw/ /processed/
+    gotchas:
+      - Requires CAP_SYS_NICE to *raise* priority; lowering is unprivileged.
+    tags: [nice, ionice, batch]
