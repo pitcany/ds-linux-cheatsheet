@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections import Counter
 from importlib import resources
 from pathlib import Path
 
@@ -97,3 +98,8 @@ def load_all(data_dir: Path | None = None) -> list[CommandEntry]:
 def categories(entries: list[CommandEntry]) -> list[str]:
     """Return sorted unique category names."""
     return sorted({e.category for e in entries})
+
+
+def count_by_category(entries: list[CommandEntry]) -> dict[str, int]:
+    """Return entry counts keyed by category name."""
+    return dict(Counter(entry.category for entry in entries))

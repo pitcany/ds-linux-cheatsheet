@@ -20,7 +20,8 @@ from textual.widgets import Footer, Header, Input, Label, ListItem, ListView, St
 
 from ..clipboard import copy_to_clipboard
 from ..explain import explain as explain_command
-from ..loader import CheatSheetLoadError, find_data_dir, load_all
+from ..git_meta import recent_entry_ids
+from ..loader import CheatSheetLoadError, count_by_category, find_data_dir, load_all
 from ..models import CommandEntry
 from ..runner import run as run_command
 from ..search import search as search_entries
@@ -34,18 +35,24 @@ _ALL_CATEGORIES = "All"
 class CategoryItem(ListItem):
     """List entry that stores a category name."""
 
-    def __init__(self, name: str) -> None:
-        super().__init__(Label(name))
+    def __init__(self, name: str, label: str | None = None) -> None:
+        super().__init__(Label(label or name))
         self.category_name = name
 
 
 class CommandItem(ListItem):
     """List entry that stores a CommandEntry id."""
 
-    def __init__(self, entry: CommandEntry) -> None:
+    def __init__(self, entry: CommandEntry, *, is_recent: bool = False) -> None:
         title = entry.title
-        if entry.dangerous:
-            label = Label(Text.assemble(("!! ", "bold red"), title))
+        if entry.dangerous or is_recent:
+            parts: list[str | tuple[str, str]] = []
+            if is_recent:
+                parts.append(("★ ", "bold green"))
+            if entry.dangerous:
+                parts.append(("!! ", "bold red"))
+            parts.append(title)
+            label = Label(Text.assemble(*parts))
         else:
             label = Label(title)
         super().__init__(label)
@@ -60,6 +67,10 @@ class SearchInput(Input):
             event.prevent_default()
             event.stop()
             self.app.action_toggle_theme()
+        elif event.key == "D" and self.value == "":
+            event.prevent_default()
+            event.stop()
+            self.app.action_focus_detail()
         elif event.key in {"down", "enter"}:
             event.prevent_default()
             event.stop()
@@ -134,6 +145,11 @@ class CheatSheetApp(App[None]):
         Binding("c", "copy_command", "Copy"),
         Binding("C", "cycle_copy_target", "Cycle"),
         Binding("s", "substitute_command", "Substitute"),
+        Binding("D", "focus_detail", "Detail"),
+        Binding("pagedown", "detail_page_down", "Page down", show=False),
+        Binding("pageup", "detail_page_up", "Page up", show=False),
+        Binding("home", "detail_home", "Top", show=False),
+        Binding("end", "detail_end", "Bottom", show=False),
         Binding("e", "edit_yaml", "Edit YAML"),
         Binding("x", "run_command", "Run"),
         Binding("E", "explain_prompt", "Explain"),
@@ -166,6 +182,8 @@ class CheatSheetApp(App[None]):
         self.entries_by_id: dict[str, CommandEntry] = {}
         self.data_dir: Path | None = None
         self.status_message: str = ""
+        self.category_counts: dict[str, int] = {}
+        self.recent_ids: set[str] = set()
 
     # ------------------------------------------------------------------ compose
 
@@ -177,7 +195,7 @@ class CheatSheetApp(App[None]):
         with Horizontal(id="main"):
             yield ListView(id="categories")
             yield ListView(id="commands")
-            with VerticalScroll(id="detail"):
+            with VerticalScroll(id="detail", can_focus=True):
                 yield Static(_render_detail(None, -1), id="detail-body")
         yield Footer()
 
@@ -187,11 +205,13 @@ class CheatSheetApp(App[None]):
         try:
             self.entries = load_all()
             self.data_dir = find_data_dir()
+            self.recent_ids = recent_entry_ids(self.data_dir.parent.parent)
         except CheatSheetLoadError as exc:
             self.entries = []
             self._set_status(f"Load error: {exc}")
 
         self.entries_by_id = {e.id: e for e in self.entries}
+        self.category_counts = count_by_category(self.entries)
         self._refresh_categories()
         self._refresh_commands()
 
@@ -216,10 +236,10 @@ class CheatSheetApp(App[None]):
     def _refresh_categories(self) -> None:
         view = self.query_one("#categories", ListView)
         view.clear()
-        view.append(CategoryItem(_ALL_CATEGORIES))
+        view.append(CategoryItem(_ALL_CATEGORIES, f"{_ALL_CATEGORIES} ({len(self.entries)})"))
         cats = sorted({e.category for e in self.entries})
         for cat in cats:
-            view.append(CategoryItem(cat))
+            view.append(CategoryItem(cat, f"{cat} ({self.category_counts.get(cat, 0)})"))
         view.index = 0
 
     def _refresh_commands(self) -> None:
@@ -228,7 +248,7 @@ class CheatSheetApp(App[None]):
         category = None if self.current_category == _ALL_CATEGORIES else self.current_category
         results = search_entries(self.entries, self.query, category=category)
         for entry in results:
-            view.append(CommandItem(entry))
+            view.append(CommandItem(entry, is_recent=entry.id in self.recent_ids))
         if results:
             view.index = 0
             self.selected_id = results[0].id
@@ -260,6 +280,11 @@ class CheatSheetApp(App[None]):
                 event.prevent_default()
                 event.stop()
                 self.action_toggle_theme()
+                return
+            if event.key == "D" and self.query_one("#search-input", Input).value == "":
+                event.prevent_default()
+                event.stop()
+                self.action_focus_detail()
                 return
             if event.key in {"down", "enter"}:
                 event.prevent_default()
@@ -381,6 +406,7 @@ class CheatSheetApp(App[None]):
         try:
             self.entries = load_all()
             self.entries_by_id = {e.id: e for e in self.entries}
+            self.category_counts = count_by_category(self.entries)
             self._refresh_categories()
             self._refresh_commands()
             self._set_status(f"Reloaded {len(self.entries)} commands.")
@@ -422,7 +448,7 @@ class CheatSheetApp(App[None]):
         self._move_focused_list(-1)
 
     def action_cycle_focus(self) -> None:
-        order = ["#search-input", "#categories", "#commands"]
+        order = ["#search-input", "#categories", "#commands", "#detail"]
         focused = self.focused
         if focused is None:
             self.query_one(order[0]).focus()
@@ -433,6 +459,25 @@ class CheatSheetApp(App[None]):
                 self.query_one(next_sel).focus()
                 return
         self.query_one(order[0]).focus()
+
+    def action_focus_detail(self) -> None:
+        self.query_one("#detail", VerticalScroll).focus()
+
+    def action_detail_page_down(self) -> None:
+        if self.focused is self.query_one("#detail", VerticalScroll):
+            self.query_one("#detail", VerticalScroll).scroll_page_down()
+
+    def action_detail_page_up(self) -> None:
+        if self.focused is self.query_one("#detail", VerticalScroll):
+            self.query_one("#detail", VerticalScroll).scroll_page_up()
+
+    def action_detail_home(self) -> None:
+        if self.focused is self.query_one("#detail", VerticalScroll):
+            self.query_one("#detail", VerticalScroll).scroll_home()
+
+    def action_detail_end(self) -> None:
+        if self.focused is self.query_one("#detail", VerticalScroll):
+            self.query_one("#detail", VerticalScroll).scroll_end()
 
     def _move_focused_list(self, delta: int) -> None:
         focused = self.focused

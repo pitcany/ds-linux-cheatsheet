@@ -7,6 +7,7 @@ import pytest
 from ds_cheatsheet.loader import (
     CheatSheetLoadError,
     categories,
+    count_by_category,
     load_all,
     load_file,
 )
@@ -69,3 +70,9 @@ def test_categories_sorted() -> None:
         "networking",
     }
     assert expected.issubset(set(cats))
+
+
+def test_count_by_category_returns_entry_counts() -> None:
+    entries = load_all(DATA_DIR)
+
+    assert count_by_category(entries)["gpu"] == 5

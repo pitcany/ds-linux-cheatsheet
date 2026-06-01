@@ -190,7 +190,7 @@ still works for `←`/`→`.
 
 ## Phase 2 — Information & affordances
 
-### 11. Show nav keys in the Footer
+### ✅ 11. Show nav keys in the Footer
 
 **Files.** `src/ds_cheatsheet/tui/app.py`
 
@@ -206,7 +206,7 @@ Theme … Down Up Cycle`.
 
 ---
 
-### 12. Category list shows entry counts
+### ✅ 12. Category list shows entry counts
 
 **Files.** `src/ds_cheatsheet/tui/app.py`, `src/ds_cheatsheet/loader.py`
 
@@ -223,7 +223,7 @@ filters correctly.
 
 ---
 
-### 15. "New in last N days" badge
+### ✅ 15. "New in last N days" badge
 
 **Files.** `src/ds_cheatsheet/loader.py`, `src/ds_cheatsheet/tui/app.py`
 
@@ -247,7 +247,7 @@ a git checkout.
 
 ---
 
-### 6. Detail panel scroll affordances
+### ✅ 6. Detail panel scroll affordances
 
 **Files.** `src/ds_cheatsheet/tui/styles.tcss`, `src/ds_cheatsheet/tui/app.py`
 

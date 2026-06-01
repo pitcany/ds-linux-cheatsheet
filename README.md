@@ -58,6 +58,9 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 | `j`/`k` or arrows | Move within the focused list |
 | `tab`| Cycle search → categories → commands    |
 | `enter` | Select the highlighted item          |
+| `D`  | Focus the detail panel                  |
+| `PgUp`/`PgDn` | Scroll the focused detail panel |
+| `Home`/`End` | Jump to top / bottom of detail |
 | `c`  | Copy the selected template/example to clipboard |
 | `1`-`9` | Copy example N directly             |
 | `C`  | Cycle copy target: template → examples |

@@ -36,6 +36,8 @@ Screen {
 #detail {
     width: 1fr;
     padding: 1 2;
+    overflow-y: auto;
+    scrollbar-size: 1 1;
 }
 
 ListView > ListItem {

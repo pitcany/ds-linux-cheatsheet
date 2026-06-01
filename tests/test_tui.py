@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from textual.widgets import Input, ListView
+from textual.widgets import Input, Label, ListView
 
 from ds_cheatsheet.tui.app import CheatSheetApp
 from ds_cheatsheet.tui.substitute_screen import SubstituteScreen
@@ -187,3 +187,54 @@ async def test_substitute_callback_copies_filled_command(
 
         assert copied == ["tmux new -s train"]
         assert app.status_message == "Copied substituted command"
+
+
+@pytest.mark.asyncio
+async def test_category_list_shows_entry_counts() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        category_items = app.query_one("#categories", ListView).children
+        labels = [str(item.query_one(Label).content) for item in category_items]
+
+        assert "All (101)" in labels
+        assert "gpu (5)" in labels
+
+
+@pytest.mark.asyncio
+async def test_recent_entries_are_prefixed_in_command_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "ds_cheatsheet.tui.app.recent_entry_ids",
+        lambda _repo_root: {"tmux-new-session"},
+    )
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#search-input", Input).value = "tmux new session"
+        await pilot.pause()
+
+        first = app.query_one("#commands", ListView).children[0]
+        label = first.query_one(Label)
+
+        assert str(label.content).startswith("★ ")
+
+
+@pytest.mark.asyncio
+async def test_detail_panel_focus_and_scroll_keys_do_not_error() -> None:
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.selected_id = "tmux-new-session"
+        app._refresh_detail()
+
+        await pilot.press("D")
+        await pilot.press("pagedown")
+        await pilot.press("pageup")
+        await pilot.press("end")
+        await pilot.press("home")
+        await pilot.pause()
+
+        assert app.focused is app.query_one("#detail")

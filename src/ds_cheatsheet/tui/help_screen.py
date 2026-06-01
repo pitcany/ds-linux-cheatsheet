@@ -18,6 +18,9 @@ HELP_TEXT = """[b]ds-linux-cheatsheet[/b]
   arrows       same as j / k
   tab          cycle between panels
   enter        open the selected command
+  D            focus the detail panel
+  PgUp/PgDn    scroll the focused detail panel
+  Home/End     jump to top / bottom of detail
 
 [b]Actions[/b]
   c            copy the selected template/example to the clipboard
