@@ -106,26 +106,3 @@ commands:
     gotchas:
       - Rebuilding from source can take a long time without prebuilt wheels.
     tags: [pip, debug]
-
-  - id: uv-quick-install
-    title: uv — fast Python package installer
-    category: python_env
-    command: uv pip install <pkg>
-    explanation: |
-      `uv` is a Rust-based pip / venv replacement that is dramatically faster
-      at resolving and downloading. Use `uv venv` to create environments.
-    flags:
-      - uv pip install
-      - uv venv
-      - uv sync
-    examples:
-      - description: Create a venv and install
-        command: |
-          uv venv .venv
-          source .venv/bin/activate
-          uv pip install -e ".[dev]"
-      - description: Reproducible install from lockfile
-        command: uv sync
-    gotchas:
-      - "`uv` resolves more strictly than pip — sometimes surfaces real conflicts that pip silently masked."
-    tags: [uv, pip, fast]
