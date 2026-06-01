@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import ClassVar
@@ -29,9 +30,37 @@ from ..search import search as search_entries
 from ..search import suggest as suggest_entries
 from ..substitute import find_placeholders
 from .help_screen import HelpScreen
+from .run_result_screen import RunResultScreen
 from .substitute_screen import SubstituteScreen
 
 _ALL_CATEGORIES = "All"
+
+
+def editor_command(editor: str, path: Path, line: int) -> list[str]:
+    """Build an editor command that opens ``path`` at ``line`` when supported."""
+    parts = shlex.split(editor) or ["vi"]
+    executable = parts[0]
+    args = parts[1:]
+    editor_name = Path(executable).name
+    path_text = str(path)
+
+    if editor_name in {"vi", "vim", "nvim"}:
+        return [executable, *args, f"+{line}", path_text]
+    if editor_name in {"code", "codium"}:
+        return [executable, *args, "--goto", f"{path_text}:{line}"]
+    if editor_name == "nano":
+        return [executable, *args, f"+{line}", path_text]
+    return [executable, *args, path_text]
+
+
+def _entry_line_number(path: Path, entry_id: str) -> int:
+    try:
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if f"id: {entry_id}" in line:
+                return line_number
+    except OSError:
+        return 1
+    return 1
 
 
 class CategoryItem(ListItem):
@@ -477,8 +506,9 @@ class CheatSheetApp(App[None]):
             self._set_status(f"YAML file for {entry.id} not found.")
             return
 
+        line_number = _entry_line_number(target, entry.id)
         with self.suspend():
-            subprocess.call([editor, str(target)])
+            subprocess.call(editor_command(editor, target, line_number))
 
         try:
             self.entries = load_all()
@@ -503,14 +533,8 @@ class CheatSheetApp(App[None]):
 
         result = run_command(entry.command, confirm=True)
         if result.executed:
-            self._set_status(f"Exit {result.returncode} — see detail panel.")
-            preview = (result.stdout or result.stderr or "(no output)")[:1500]
-            body = Panel(
-                Text(preview),
-                title=f"Run result: {entry.title}",
-                border_style="green" if result.returncode == 0 else "red",
-            )
-            self.query_one("#detail-body", Static).update(body)
+            self._set_status(f"Exit {result.returncode} — result opened.")
+            self.push_screen(RunResultScreen(result, entry.title))
         else:
             self._set_status(result.reason)
 

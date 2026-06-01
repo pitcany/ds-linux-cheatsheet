@@ -228,8 +228,7 @@ Outside the TUI, run `ds-cheatsheet validate` after manual edits.
 The optional command runner is intentionally conservative:
 
 - **Default mode is copy-only.** `c` always works.
-- **`x` runs non-dangerous commands** with output captured into the detail
-  panel.
+- **`x` runs non-dangerous commands** with output captured into a modal.
 - **Dangerous commands are refused.** Patterns matched in
   `src/ds_cheatsheet/safety.py::DANGEROUS_PATTERNS`:
   `rm -rf*`, `chmod -R`, `chown -R`, `dd if=`, `mkfs*`, `sudo`, fork bomb,

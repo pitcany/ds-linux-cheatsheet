@@ -3,7 +3,9 @@ from __future__ import annotations
 import pytest
 from textual.widgets import Input, Label, ListView
 
+from ds_cheatsheet.runner import RunResult
 from ds_cheatsheet.tui.app import CheatSheetApp
+from ds_cheatsheet.tui.run_result_screen import RunResultScreen
 from ds_cheatsheet.tui.substitute_screen import SubstituteScreen
 
 
@@ -278,3 +280,27 @@ async def test_explain_screen_lists_related_entries() -> None:
         suggestion_ids = [item.entry_id for item in suggestions.children]
 
         assert any(entry_id.startswith(("ripgrep", "grep")) for entry_id in suggestion_ids)
+
+
+@pytest.mark.asyncio
+async def test_run_command_opens_result_modal_without_replacing_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "ds_cheatsheet.tui.app.run_command",
+        lambda _command, confirm=True: RunResult("echo hi", True, 0, "hi\n", "", "ok"),
+    )
+    app = CheatSheetApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.query_one("#commands", ListView).focus()
+        app.selected_id = "tmux-list-sessions"
+        app._refresh_detail()
+        detail_before = app.query_one("#detail-body").content
+
+        await pilot.press("x")
+        await pilot.pause()
+
+        assert isinstance(app.screen, RunResultScreen)
+        assert app.screen.result.stdout == "hi\n"
+        assert app.query_one("#detail-body").content is detail_before

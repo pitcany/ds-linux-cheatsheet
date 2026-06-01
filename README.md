@@ -10,7 +10,7 @@ ML engineers. Built with [Textual](https://textual.textualize.io/).
   monitoring, disk usage, GPU monitoring, networking
 - Local rule-based **explain-this-command** — no API calls
 - Optional, gated command runner — copy-only by default, dangerous commands
-  blocked unless you explicitly force them
+  blocked unless you explicitly force them, with output shown in a modal
 - Editable YAML content — `e` opens the entry in `$EDITOR`, then reloads
 - Validation tests for every command file (`pytest`)
 
@@ -79,7 +79,7 @@ ds-cheatsheet explain "rg -uu --hidden TODO ./src"
 The runner is intentionally cautious:
 
 1. Default mode is **copy only** — `c` puts the command on your clipboard.
-2. Pressing `x` only runs *non-dangerous* commands.
+2. Pressing `x` only runs *non-dangerous* commands and opens output in a modal.
 3. Anything containing patterns like `rm -rf`, `chmod -R`, `chown -R`, `dd`,
    `mkfs`, `sudo`, `git push --force`, `git reset --hard`, fork bombs,
    `curl | sh`, raw block-device writes, or `docker system prune -a` is

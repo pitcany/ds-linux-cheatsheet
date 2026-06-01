@@ -331,7 +331,7 @@ first token has no cheat sheet entries; modal still works fine.
 
 ## Phase 4 — Runner & editor polish
 
-### 7. Runner output in a modal instead of replacing the detail pane
+### ✅ 7. Runner output in a modal instead of replacing the detail pane
 
 **Files.** `src/ds_cheatsheet/tui/app.py`, new
 `src/ds_cheatsheet/tui/run_result_screen.py`
@@ -350,7 +350,7 @@ first token has no cheat sheet entries; modal still works fine.
 
 ---
 
-### 8. `e` opens YAML at the entry's line
+### ✅ 8. `e` opens YAML at the entry's line
 
 **Files.** `src/ds_cheatsheet/tui/app.py`
 
