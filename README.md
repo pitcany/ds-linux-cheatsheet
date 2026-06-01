@@ -14,14 +14,30 @@ ML engineers. Built with [Textual](https://textual.textualize.io/).
 - Editable YAML content — `e` opens the entry in `$EDITOR`, then reloads
 - Validation tests for every command file (`pytest`)
 
+> For step-by-step ops and troubleshooting (conda *and* venv paths, YAML
+> editing, runner safety, theming, releases), see [`RUNBOOK.md`](./RUNBOOK.md).
+
 ## Quick start
 
+### conda
+
 ```bash
-git clone <your-fork> ds-linux-cheatsheet
+git clone https://github.com/pitcany/ds-linux-cheatsheet.git
+cd ds-linux-cheatsheet
+conda create -n ds-cheatsheet python=3.12 -y
+conda activate ds-cheatsheet
+pip install -e ".[dev]"
+ds-cheatsheet              # launches the TUI
+```
+
+### venv
+
+```bash
+git clone https://github.com/pitcany/ds-linux-cheatsheet.git
 cd ds-linux-cheatsheet
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-ds-cheatsheet              # launches the TUI
+ds-cheatsheet
 ```
 
 The CLI also supports:
